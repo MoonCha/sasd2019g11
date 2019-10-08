@@ -77,7 +77,7 @@ if [[ "$?" -ne "0" ]]; then
 fi
 
 # Check if Docker image is available
-docker run -t ${DIMG} /usr/bin/whoami &> /dev/null
+docker run --rm -t ${DIMG} /usr/bin/whoami &> /dev/null
 if [[ "$?" -ne "0" ]]; then
   warning "Docker image missing"
   docker_update
@@ -104,4 +104,4 @@ CMD+="[[ -f execute_permission.sh ]] && ./execute_permission.sh; "
 CMD+="zsh; "
 
 # Run Docker
-docker run -v ${PWD}:/mnt/host -it ${DIMG} /bin/bash -c "${CMD}"
+docker run --rm -v ${PWD}:/mnt/host -it ${DIMG} /bin/bash -c "${CMD}"
