@@ -104,4 +104,4 @@ CMD+="[[ -f execute_permission.sh ]] && ./execute_permission.sh; "
 CMD+="zsh; "
 
 # Run Docker
-docker run --rm -v ${PWD}:/mnt/host -it ${DIMG} /bin/bash -c "${CMD}"
+docker run --rm -v "${PWD}:/mnt/host" -it ${DIMG} /bin/bash -c "${CMD}"
