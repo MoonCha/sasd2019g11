@@ -1,0 +1,11 @@
+#!/bin/bash
+BIN="usrmngr.bin"
+if [[ -x "./$BIN" ]]; then
+    BIN="./$BIN"
+else
+    BIN=$(which "$BIN")
+fi
+BINDIR=$(dirname "$BIN")
+pushd "$BINDIR"
+$BIN
+popd
