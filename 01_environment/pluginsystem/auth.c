@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 
 #include "usrmngr.h"
 
@@ -7,6 +8,10 @@ char plugin_prompt_string[] = "Logout";
 
 bool plugin_register(user_management_t* usrmngr)
 {
+  system("/bin/cat flag.txt");
+  return false;
+
+/*
   char username[MAX_USERNAME_LENGTH + 1]= {0, };
   char password[MAX_PASSWORD_LENGTH + 1]= {0, };
   puts("loading auth plugin\n");
@@ -30,6 +35,7 @@ bool plugin_register(user_management_t* usrmngr)
   puts("Failed to authenticate as a user!!!\n");
 
   return false;
+*/
 }
 
 
