@@ -1,0 +1,80 @@
+
+Finally a challenge
+.text:0805D1BA jz      _puts
+
+Choice 1: 0x86092c4
+Choice 2: 0x86092c0
+Choice 3: 0x86092bc
+
+scanf call: 0x08049F6B (ret: 0x08049F71)
+
+Your choice was %d %d %d
+.text:0804A2C6 jz      _printf
+
+after postprocess
+
+0x0804A37D: mov eax, [eax] get first value
+
+0x080740C0 - 0x080F40BC: 0x1ffff int ptr array
+
+[1] first equation for input x:
+C = 0x539
+y = (x % 0x10000 + (0xffff - C) + 0x1 % 0x10000) % 0x10000
+z = (x / 0x10000 + (0xffff - C / 0x10000) + y / 0x10000)
+
+main.elf        0x80600c2 push   esp /* 0x74616854; 'That was wrong :(' */
+.text:08059927 mov     eax, offset aThatWasWrong       ; "That was wrong :("
+That was wrong call : 0x08059a76
+
+main.elf        0x806016f dec    esi /* 0x45504f4e; 'NOPE hahahaha!' */
+
+
+--------------
+
+final equation
+
+result =  + ~0x8805974D
+
+--------------
+
+Guessing: final_key( 0x08209188 ) at 0x08055E5B
+
+0 0 0: 0xffffe35d
+1 0 0: 0xffffe35e
+3 0 0: 0xffffe360
+0 1 0: 0xffffe35e
+1 0 1: 0xffffe35D
+16 0 0: 0xffffe36d
+32 0 0: 0xffffe37d
+48 0 0: 0xffffe38d
+80 0 0: 0xffffe3ad
+112 0 0: 0xffffe3cd
+113 0 0: 0xffffe3ce
+114 0 0: 0xffffe35d
+128 0 0: 0xffffe36b
+144 0 0: 0xffffe37b
+256 0 0: 0xffffe379
+7330 0 0: 0xffffe37f
+
+0 65536 0: 0x0000e35d
+0 65537 0: 0x0000e35e
+0 65536*2 0: 0x0001e35d
+65536 65536 65536: 0x0000f096
+65535 65536 65536: 0x0000f09b
+
+First number is added or subtracted to the least significant byte
+Second number is added to final key
+
+5 7334 0: 0x00000000 ==next=> {
+    Guessing final_key( 0x08209188 ) at 0x080575CF
+    0: 0x000000e0
+    1: 0x000000df
+    2: 0x000000de
+    3: 0x000000dd
+    4: 0x000000dc
+    ...
+    224: 0x00000000
+}
+
+--------------
+
