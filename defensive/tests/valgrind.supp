@@ -1,0 +1,15 @@
+{
+    libcheck still reachable stuff 1
+    Memcheck:Leak
+    obj:*/vgpreload_memcheck*
+    obj:*/libcheck.so*
+    obj:*/libcheck.so*
+}
+{
+    libcheck still reachable stuff 2
+    Memcheck:Leak
+    obj:*/vgpreload_memcheck*
+    obj:*/libc-*
+    obj:*/libcheck.so*
+    obj:*/libcheck.so*
+}
