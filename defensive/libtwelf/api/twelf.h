@@ -117,6 +117,8 @@ typedef struct
 
 #define EI_VERSION 6 /* File version byte index */
                      /* Value must be EV_CURRENT */
+
+#define EI_OSABI 7
 #define ELFOSABI_SYSV 0
 
 /* Legal values for e_version (version).  */

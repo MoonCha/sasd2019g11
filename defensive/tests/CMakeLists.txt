@@ -47,7 +47,11 @@ set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -lgcov")
 find_program(VALGRIND valgrind)
 find_program(LCOV lcov)
 find_program(GENHTML genhtml)
-set(VALGRIND_ARGUMENTS --tool=memcheck --leak-check=yes --leak-resolution=high --show-reachable=yes --show-leak-kinds=all --error-exitcode=42 --suppressions=${CMAKE_SOURCE_DIR}/tests/valgrind.supp --errors-for-leak-kinds=all)
+set(VALGRIND_ARGUMENTS --tool=memcheck --leak-check=yes --leak-resolution=high
+  --show-reachable=yes --show-leak-kinds=all --error-exitcode=42
+  --suppressions=${CMAKE_SOURCE_DIR}/tests/valgrind.supp --errors-for-leak-kinds=all
+  --child-silent-after-fork=yes)
+set(VALGRIND_ENV CK_FORK=no)
 set(LCOV_FLAGS --capture --rc lcov_branch_coverage=1)
 set(GENHTML_FLAGS --rc lcov_branch_coverage=1)
 set(CTEST_OUTPUT_ON_FAILURE 1)
@@ -78,6 +82,6 @@ FOREACH(tc ${testcase_names})
            COMMAND ${CMAKE_CURRENT_BINARY_DIR}/testsuite_asan ${CMAKE_CURRENT_BINARY_DIR}/${tc}_asan.xml ${tc}
            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
   add_test(NAME "${tc}_valgrind"
-           COMMAND ${VALGRIND} ${VALGRIND_ARGUMENTS} --xml=yes --xml-file=${CMAKE_CURRENT_BINARY_DIR}/${tc}.xml ${CMAKE_CURRENT_BINARY_DIR}/testsuite ${CMAKE_CURRENT_BINARY_DIR}/valgrind-${tc}.xml ${tc}
+           COMMAND ${CMAKE_COMMAND} -E env ${VALGRIND_ENV} ${VALGRIND} ${VALGRIND_ARGUMENTS} --xml=yes --xml-file=${CMAKE_CURRENT_BINARY_DIR}/valgrind-${tc}_vgout.xml ${CMAKE_CURRENT_BINARY_DIR}/testsuite ${CMAKE_CURRENT_BINARY_DIR}/valgrind-${tc}.xml ${tc}
            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 ENDFOREACH()
