@@ -1,4 +1,4 @@
-# Assmignment 2: Libtwelf
+# Assignment 2: Libtwelf
 
 ## Building and testing
 
