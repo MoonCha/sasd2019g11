@@ -48,7 +48,7 @@
 #include "libtwelf_types.h"
 
 
-/// opens an elf file and checks its valididty
+/// opens an elf file and checks its validity
 ///
 /// @param file_name: the name of the file to be opened
 /// @param result: outparam for the resulting file
@@ -157,7 +157,7 @@ int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
 /// Calling this function invalidates any pointer previously returned by
 /// libtwelf_getSegmentData for that LibtwelfFile.
 ///
-/// This function shall only work on segments that do not contain any sections. 
+/// This function shall only work on segments that do not contain any sections.
 ///
 /// This function copies the memory pointed to by data into an internal buffer.
 /// Thus the caller is responsible for cleanup of memory referenced by the data
@@ -181,7 +181,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
 /// shall be zeroed out in the segment.
 ///
 /// To simplify functionality, if the section is covered by a non-PT_LOAD
-/// segment, the data for this segment is unspecified. 
+/// segment, the data for this segment is unspecified.
 ///
 /// This function shall fail if enlarging the section would create an overlap
 /// with another section, or would grow beyond the size of the associated segment, if any.

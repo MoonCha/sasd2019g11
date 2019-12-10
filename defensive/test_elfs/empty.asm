@@ -14,7 +14,7 @@ ehdr:                                ; elf64_ehdr
   dw 64                              ;   e_ehsize
   dw 56                              ;   e_phentsize
   dw 0                               ;   e_phnum
-  dw 65                              ;   e_shentsize
+  dw 64                              ;   e_shentsize
   dw 0                               ;   e_shnum
   dw 1                               ;   e_shstrndx
 ehdrsize      equ     $ - ehdr
