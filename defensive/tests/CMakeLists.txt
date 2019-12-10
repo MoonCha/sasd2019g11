@@ -10,6 +10,11 @@ FOREACH(curFile ${twelf_sources})
   GET_FILENAME_COMPONENT(curName ${curFile} NAME_WE)
   ADD_EXECUTABLE(${curName} ${curFile})
   TARGET_LINK_LIBRARIES(${curName} libtwelf ${LIBS})
+
+  ADD_EXECUTABLE(${curName}_asan ${curFile})
+  TARGET_LINK_LIBRARIES(${curName}_asan libtwelf_asan ${LIBS})
+  TARGET_COMPILE_OPTIONS(${curName}_asan PUBLIC ${ASAN_OPTIONS})
+  TARGET_LINK_OPTIONS(${curName}_asan PUBLIC ${ASAN_OPTIONS})
 ENDFOREACH()
 
 file(GLOB twelf_projects */)
@@ -28,8 +33,31 @@ FOREACH(curProject ${twelf_projects})
   ENDIF()
 ENDFOREACH()
 
-TARGET_LINK_OPTIONS(testsuite PUBLIC -rdynamic -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=strdup)
-TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -rdynamic -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=strdup)
+TARGET_LINK_OPTIONS(testsuite PUBLIC -rdynamic
+    -Wl,--wrap=malloc
+    -Wl,--wrap=calloc
+    -Wl,--wrap=realloc
+    -Wl,--wrap=strdup
+    -Wl,--wrap=open
+    -Wl,--wrap=fopen
+    -Wl,--wrap=close
+    -Wl,--wrap=fclose
+    -Wl,--wrap=fstat
+    -Wl,--wrap=mmap)
+TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -rdynamic
+    -Wl,--wrap=malloc
+    -Wl,--wrap=calloc
+    -Wl,--wrap=realloc
+    -Wl,--wrap=strdup
+    -Wl,--wrap=open
+    -Wl,--wrap=fopen
+    -Wl,--wrap=close
+    -Wl,--wrap=fclose
+    -Wl,--wrap=fstat
+    -Wl,--wrap=mmap)
+
+TARGET_LINK_OPTIONS(testsuite PUBLIC -ldl)
+TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -ldl)
 
 enable_testing()
 
@@ -57,9 +85,15 @@ set(GENHTML_FLAGS --rc lcov_branch_coverage=1)
 set(CTEST_OUTPUT_ON_FAILURE 1)
 
 add_custom_target(gcov
-                  COMMAND ${LCOV} ${LCOV_FLAGS} --output-file gcov.info --base-directory .. --directory .
+                  COMMAND zsh -c "rm **/util.c.gcda" 2> /dev/null || true # ignore util.c
+                  COMMAND ${LCOV} ${LCOV_FLAGS} --output-file gcov.info --base-directory ${PROJECT_SOURCE_DIR} --directory libtwelf
                   COMMAND ${GENHTML} ${GENHTML_FLAGS} --output-directory coverage_report gcov.info > gcov.log
+                  COMMAND echo -e '\\033[1;34mCoverage report has been written to ./coverage_report\\033[0m'
+                  COMMAND echo -e '\\033[1;34mYou can inspect it with a web browser of your choice.\\033[0m'
                   WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+
+add_custom_target(test-fast
+                  COMMAND ${CMAKE_CTEST_COMMAND} -E "_valgrind")
 
 add_custom_target(test-verbose
                   COMMAND ${CMAKE_CTEST_COMMAND} -V)
@@ -73,6 +107,10 @@ add_custom_target(test-direct
 add_custom_target(cppcheck
                   COMMAND cppcheck --enable=warning libtwelf
                   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
+
+add_custom_target(afl
+                  COMMAND "${PROJECT_SOURCE_DIR}/tests/afl.sh"
+                  WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 
 FOREACH(tc ${testcase_names})
   add_test(NAME ${tc}

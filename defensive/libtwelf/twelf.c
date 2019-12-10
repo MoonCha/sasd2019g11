@@ -124,7 +124,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 {
   // Keep in mind the alignment requirements when implementing this function
   // each PT_LOAD segment's start address's page offset must equal the file offset's page
-  // offset. (or in mathematical terms: virtual_address % PAGE_SIZE == ph_off % PAGE_SIZE)
+  // offset. (or in mathematical terms: virtual_address % PAGE_SIZE == p_offset % PAGE_SIZE)
   //
   // Also, sections must be aligned corresponding to the alignment specification
   // in their header.
@@ -155,12 +155,12 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   return ERR_NOT_IMPLEMENTED;
 }
 
-int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* section, const char *name, unsigned char st_info, Elf64_Addr st_value)
+int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* section, const char *name, unsigned char type, Elf64_Addr st_value)
 {
   (void) twelf;
   (void) section;
   (void) name;
-  (void) st_info;
+  (void) type;
   (void) st_value;
   return ERR_NOT_IMPLEMENTED;
 }

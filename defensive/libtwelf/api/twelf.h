@@ -213,6 +213,9 @@ typedef struct
 #define ELF32_ST_TYPE(val) ((val) &0xf)
 #define ELF32_ST_INFO(bind, type) (((bind) << 4) + ((type) &0xf))
 
+/* Symbol visibility specification encoded in the st_other field.  */
+#define STV_DEFAULT 0     /* Default symbol visibility rules */
+
 /* Both Elf32_Sym and Elf64_Sym use the same one-byte st_info field.  */
 #define ELF64_ST_BIND(val) ELF32_ST_BIND(val)
 #define ELF64_ST_TYPE(val) ELF32_ST_TYPE(val)
