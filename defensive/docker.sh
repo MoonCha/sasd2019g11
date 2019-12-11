@@ -99,4 +99,4 @@ CMD+="useradd -m -k /root --non-unique --uid `id -u` -s /bin/zsh sasd; "
 CMD+="su sasd"
 
 # Run Docker
-docker run --rm -v "${PWD}:/mnt/host" -it ${DIMG} /bin/bash -c "${CMD}"
+docker run --rm -v "${PWD}:/mnt/host" --security-opt seccomp=unconfined -it ${DIMG} /bin/bash -c "${CMD}"
