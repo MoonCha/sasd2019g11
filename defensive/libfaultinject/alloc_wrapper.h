@@ -14,7 +14,7 @@ extern "C" {
 
 /**
  * Control whether future heap allocations will artificially fail.
- * This affects malloc, calloc, realloc and strdup.
+ * This affects malloc, calloc, realloc, strdup and mmap.
  * If @a n == 0, nothing will be done. Otherwise, the nth allocation
  * will fail, returning @a NULL.
  * 
@@ -24,7 +24,7 @@ void set_alloc_failcounter(size_t n);
 
 /**
  * Control whether future file operations will artificially fail.
- * This affects open, fopen, close, fclose, fstat and mmap.
+ * This affects open, fopen, close, fclose and fstat.
  * If @a n == 0, nothing will be done. Otherwise, the nth usage
  * will fail, returning @a NULL.
  * 
