@@ -33,16 +33,270 @@ static int readSections(struct LibtwelfFile *elf);
 
 int libtwelf_open(char *path, struct LibtwelfFile **result)
 {
-  (void) path;
-  (void) result;
-  return ERR_NOT_IMPLEMENTED;
+  int return_code = SUCCESS;
+
+  // need resource management
+  int fd = -1;
+  size_t file_size;
+  char *mmaped_file = MAP_FAILED;
+  struct LibtwelfSection *section_table = NULL;
+  struct LibtwelfSegment *segment_table = NULL;
+  char *file_name = NULL;
+  struct LibtwelfFileInternal *twelf_file_internal = NULL;
+  struct LibtwelfFile *twelf_file = NULL;
+
+  // open and read file
+  fd = open(path, O_RDONLY);
+  if (fd == -1) {
+    log_info("fd error");
+    return_code = ERR_IO;
+    goto fail;
+  }
+  struct stat file_stat;
+  if (fstat(fd, &file_stat)) {
+    log_info("fstat error");
+    return_code = ERR_IO;
+    goto fail;
+  }
+  file_size = (size_t)file_stat.st_size; // TODO: is it safe?
+  if (file_size < sizeof(Elf64_Ehdr)) {
+    log_info("file size too small");
+    return_code = ERR_ELF_FORMAT;
+    goto fail;
+  }
+  mmaped_file = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (mmaped_file == MAP_FAILED) {
+    log_info("mmap error");
+    return_code = ERR_IO;
+    goto fail;
+  }
+  
+  // ehdr check validity
+  Elf64_Ehdr *ehdr = (Elf64_Ehdr *)mmaped_file;
+  if (memcmp(&ehdr->e_ident, "\x7f\x45\x4c\x46\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16) != 0
+   || ehdr->e_version != EV_CURRENT
+   || ehdr->e_ehsize != 64
+   || ehdr->e_phentsize != 56
+   || ehdr->e_shentsize != 64
+   || ehdr->e_phoff >= file_size
+   || ehdr->e_shoff >= file_size
+   || (ehdr->e_shnum > 0 && ehdr->e_shstrndx >= ehdr->e_shnum)
+  ) {
+    log_info("general ehdr values are not valid");
+    log_info("ehdr->e_version: %u", ehdr->e_version);
+    log_info("ehdr->e_ehsize: %u", ehdr->e_ehsize);
+    log_info("ehdr->e_phentsize: %u", ehdr->e_phentsize);
+    log_info("ehdr->e_shentsize: %u", ehdr->e_shentsize);
+    log_info("ehdr->e_phoff: %lu", ehdr->e_phoff);
+    log_info("ehdr->e_shoff: %lu", ehdr->e_shoff);
+    log_info("ehdr->shstrndx: %u", ehdr->e_shstrndx);
+    log_info("ehdr->e_shnum: %u", ehdr->e_shnum);
+    return_code = ERR_ELF_FORMAT;
+    goto fail;
+  }
+  Elf64_Off shdr_boundary = 0;
+  if (__builtin_mul_overflow(ehdr->e_shnum, ehdr->e_shentsize, &shdr_boundary)
+   || __builtin_add_overflow(ehdr->e_shoff, shdr_boundary, &shdr_boundary)) {
+     log_info("shdr_boundary calcuation overflow");
+     return_code = ERR_ELF_FORMAT;
+     goto fail;
+  }
+  log_info("shdr_boundary: %lx", shdr_boundary);
+  if (shdr_boundary > file_size) {
+    log_info("shdr_boundary exceeds file_size");
+    return_code = ERR_ELF_FORMAT;
+    goto fail;
+  }
+  Elf64_Off phdr_boundary = 0;
+  if (__builtin_mul_overflow(ehdr->e_phnum, ehdr->e_phentsize, &phdr_boundary)
+   || __builtin_add_overflow(ehdr->e_phoff, phdr_boundary, &phdr_boundary)) {
+     log_info("phdr_boundary calcuation overflow");
+     return_code = ERR_ELF_FORMAT;
+     goto fail;
+  }
+  log_info("phdr_boundary: %lx", phdr_boundary);
+  if (phdr_boundary > file_size) {
+    log_info("phdr_boundary exceeds file_size");
+    return_code = ERR_ELF_FORMAT;
+    goto fail;
+  }
+
+  // create section table with validation
+  section_table = (struct LibtwelfSection *)calloc(sizeof(struct LibtwelfSection), ehdr->e_shnum);
+  if (section_table == NULL) {
+    log_info("calloc error");
+    return_code = ERR_NOMEM;
+    goto fail;    
+  }
+  log_info("section_table: %p", section_table);
+  Elf64_Shdr *shstr_shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
+  for (size_t i = 0; i < ehdr->e_shnum; ++i) {
+    Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + i * ehdr->e_shentsize);
+    log_info("shdr->sh_entsize: %lu", shdr->sh_entsize);
+    // shdr validity check
+    Elf64_Off section_boundary = 0;
+    if (shdr->sh_name >= shstr_shdr->sh_size
+     || shdr->sh_offset >= file_size
+     || __builtin_add_overflow(shdr->sh_offset, shdr->sh_size, &section_boundary)
+     || section_boundary > file_size
+     || shdr->sh_link >= ehdr->e_shnum
+     || (shdr->sh_addralign & (shdr->sh_addralign - 1)) != 0
+    ) {
+      log_info("shdr(index: %lu) is invalid", i);
+      log_info("shdr->sh_addralign: %lu", shdr->sh_addralign);
+      return_code = ERR_ELF_FORMAT;
+      goto fail;
+    }
+    if (i == 0 && shdr->sh_type != SHT_NULL) {
+      log_info("first shdr is not SHT_NULL type");
+      return_code = ERR_ELF_FORMAT;
+      goto fail;
+    }
+    // update section_table entry
+    struct LibtwelfSection *twelf_section = &section_table[i];
+    log_info("twelf_section(%lu): %p", i, twelf_section);
+    twelf_section->internal = (struct LibtwelfSectionInternal *)malloc(sizeof(struct LibtwelfSectionInternal));
+    if (twelf_section->internal == NULL) {
+      log_info("malloc error");
+      return_code = ERR_NOMEM;
+      goto fail;
+    }
+  }
+
+  // create segement table with validation
+  segment_table = (struct LibtwelfSegment *)calloc(sizeof(struct LibtwelfSegment), ehdr->e_phnum);
+  if (segment_table == NULL) {
+    log_info("calloc error");
+    return_code = ERR_NOMEM;
+    goto fail;    
+  }
+  log_info("segment_table: %p", segment_table);
+  Elf64_Off last_phdr_vaddr = 0;  
+  for (size_t i = 0; i < ehdr->e_phnum; ++i) {
+    Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)mmaped_file + ehdr->e_phoff) + i * ehdr->e_phentsize);
+    // phdr validity check
+    if (phdr->p_vaddr >= last_phdr_vaddr
+     || phdr->p_offset >= file_size
+     || phdr->p_filesz > phdr->p_memsz
+     || (phdr->p_align & (phdr->p_align - 1)) != 0
+    ) {
+      log_info("phdr(index: %lu) is invalid", i);
+      log_info("phdr->p_align: %lu", phdr->p_align);
+      return_code = ERR_ELF_FORMAT;
+      goto fail;
+    }
+    if (phdr->p_type == PT_LOAD) {
+      last_phdr_vaddr = phdr->p_vaddr;
+    }
+    // update segment_table entry
+    struct LibtwelfSegment *twelf_segment = &segment_table[i];
+    log_info("twelf_segment(%lu): %p", i, twelf_segment);
+    twelf_segment->internal = (struct LibtwelfSegmentInternal *)malloc(sizeof(struct LibtwelfSegmentInternal));
+    if (twelf_segment->internal == NULL) {
+      log_info("malloc error");
+      return_code = ERR_NOMEM;
+      goto fail;
+    }
+  }
+
+  // replicate path
+  size_t file_name_buffer_length = strlen(path) + 1;
+  file_name = (char *)malloc(file_name_buffer_length);
+  if (file_name == NULL) {
+    log_info("malloc error");
+    return_code = ERR_NOMEM;
+    goto fail;
+  }
+  strncpy(file_name, path, file_name_buffer_length);
+
+  // create internal
+  twelf_file_internal = (struct LibtwelfFileInternal *)malloc(sizeof(struct LibtwelfFileInternal));
+  if (twelf_file_internal == NULL) {
+    log_info("malloc error");
+    return_code = ERR_NOMEM;
+    goto fail;
+  }
+  twelf_file_internal->file_size = file_size;
+  twelf_file_internal->mmap_base = mmaped_file;
+
+  // assemble LibtwelfeFile and update result
+  twelf_file = (struct LibtwelfFile *)malloc(sizeof(struct LibtwelfFile));
+  if (twelf_file == NULL) {
+    log_info("malloc error");
+    return_code = ERR_NOMEM;
+    goto fail;
+  }
+  twelf_file->number_of_sections = ehdr->e_shnum;
+  twelf_file->section_table = section_table;
+  twelf_file->number_of_segments = ehdr->e_phnum;
+  twelf_file->segment_table = segment_table;
+  twelf_file->file_name = file_name;
+  twelf_file->internal = twelf_file_internal;
+  *result = twelf_file;
+
+  // clean up
+  close(fd);
+  log_info("Success");
+  return return_code;
+  
+  fail:
+  if (twelf_file != NULL) {
+    free(twelf_file);
+  }
+  if (twelf_file_internal != NULL) {
+    free(twelf_file_internal);
+  }
+  if (file_name != NULL)  {
+    free(file_name);
+  }
+  if (segment_table != NULL) {
+    for (size_t i = 0; i < ehdr->e_phnum; ++i) {
+      struct LibtwelfSegment *twelf_segment = &segment_table[i];
+      if (twelf_segment->internal != NULL) {
+        free(twelf_segment->internal);
+      }
+    }
+    free(segment_table);
+  }
+  if (section_table != NULL) {
+    for (size_t i = 0; i < ehdr->e_shnum; ++i) {
+      struct LibtwelfSection *twelf_section = &section_table[i];
+      if (twelf_section->internal != NULL) {
+        free(twelf_section->internal);
+      }
+    }
+    free(section_table);
+  }
+  if (mmaped_file != MAP_FAILED) {
+    munmap(mmaped_file, file_size);
+  }
+  if (fd != -1) {
+    close(fd);
+  }
+  if (return_code == SUCCESS) {
+    log_warn("Fail with SUCCESS");
+  } else {
+    log_info("Fail: %d", return_code);
+  }
+  return return_code;
 }
-
-
 
 void libtwelf_close(struct LibtwelfFile *twelf)
 {
-  (void) twelf;
+  free(twelf->file_name);
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *twelf_section = &twelf->section_table[i];
+    free(twelf_section->internal);
+  }
+  free(twelf->section_table);
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
+    free(twelf_segment->internal);
+  }
+  free(twelf->segment_table);
+  munmap(twelf->internal->mmap_base, twelf->internal->file_size);
+  free(twelf->internal);
+  free(twelf);
 }
 
 int libtwelf_getSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char **data, size_t *len)

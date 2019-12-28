@@ -130,7 +130,7 @@ typedef struct
 // This struct contains one entry of the section header table. All comments must be checked during libtwelf_open.
 // this struct is located in the elf file at offset Elf64_Ehdr.e_shoff
 // the .shstrtab section is the section with index Elf64_Ehdr.e_shstrndx
-// When writing a file, the segment data must be aligned by Elf64_Shdr.sh_entsize
+// When writing a file, the section data must be aligned by Elf64_Shdr.sh_addralign
 typedef struct
 {
   Elf64_Word sh_name;       /* Section name (string tbl index) */     // index into the .shstrtab section (must be valid)

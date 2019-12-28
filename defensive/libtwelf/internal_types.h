@@ -10,15 +10,18 @@
 
 struct LibtwelfFileInternal
 {
+  size_t file_size;
   char *mmap_base;
 };
 
 
 struct LibtwelfSegmentInternal
 {
+  void *dummy;
 };
 
 
 struct LibtwelfSectionInternal
 {
+  void *dummy;
 };
