@@ -94,29 +94,29 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  Elf64_Off shdr_boundary;
-  if (__builtin_mul_overflow(ehdr->e_shnum, ehdr->e_shentsize, &shdr_boundary)
-   || __builtin_add_overflow(ehdr->e_shoff, shdr_boundary, &shdr_boundary)) {
-     log_info("shdr_boundary calcuation overflow");
+  Elf64_Off shdr_table_end;
+  if (__builtin_mul_overflow(ehdr->e_shnum, ehdr->e_shentsize, &shdr_table_end)
+   || __builtin_add_overflow(ehdr->e_shoff, shdr_table_end, &shdr_table_end)) {
+     log_info("shdr_table_end calcuation overflow");
      return_code = ERR_ELF_FORMAT;
      goto fail;
   }
-  log_info("shdr_boundary: %lx", shdr_boundary);
-  if (shdr_boundary > file_size) {
-    log_info("shdr_boundary exceeds file_size");
+  log_info("shdr_table_end: %lx", shdr_table_end);
+  if (shdr_table_end > file_size) {
+    log_info("shdr_table_end exceeds file_size");
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  Elf64_Off phdr_boundary;
-  if (__builtin_mul_overflow(ehdr->e_phnum, ehdr->e_phentsize, &phdr_boundary)
-   || __builtin_add_overflow(ehdr->e_phoff, phdr_boundary, &phdr_boundary)) {
-     log_info("phdr_boundary calcuation overflow");
+  Elf64_Off phdr_table_end;
+  if (__builtin_mul_overflow(ehdr->e_phnum, ehdr->e_phentsize, &phdr_table_end)
+   || __builtin_add_overflow(ehdr->e_phoff, phdr_table_end, &phdr_table_end)) {
+     log_info("phdr_table_end calcuation overflow");
      return_code = ERR_ELF_FORMAT;
      goto fail;
   }
-  log_info("phdr_boundary: %lx", phdr_boundary);
-  if (phdr_boundary > file_size) {
-    log_info("phdr_boundary exceeds file_size");
+  log_info("phdr_table_end: %lx", phdr_table_end);
+  if (phdr_table_end > file_size) {
+    log_info("phdr_table_end exceeds file_size");
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
@@ -134,15 +134,15 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + i * ehdr->e_shentsize);
     log_info("shdr->sh_entsize: %lu", shdr->sh_entsize);
     // shdr validity check
-    Elf64_Off section_boundary;
-    uint64_t section_vaddr_boundary;
+    Elf64_Off section_end;
+    uint64_t section_vaddr_end;
     if (shdr->sh_name >= shstr_shdr->sh_size
      || shdr->sh_offset >= file_size
-     || __builtin_add_overflow(shdr->sh_offset, shdr->sh_size, &section_boundary)
-     || section_boundary > file_size
+     || __builtin_add_overflow(shdr->sh_offset, shdr->sh_size, &section_end)
+     || section_end > file_size
      || shdr->sh_link >= ehdr->e_shnum
      || (shdr->sh_addralign & (shdr->sh_addralign - 1)) != 0
-     || __builtin_add_overflow(shdr->sh_addr, shdr->sh_size, &section_vaddr_boundary)
+     || __builtin_add_overflow(shdr->sh_addr, shdr->sh_size, &section_vaddr_end)
     ) {
       log_info("shdr(index: %lu) is invalid", i);
       log_info("shdr->sh_addralign: %lu", shdr->sh_addralign);
@@ -183,16 +183,16 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     goto fail;    
   }
   log_info("segment_table: %p", segment_table);
-  Elf64_Off last_phdr_vaddr = 0;  
+  Elf64_Off last_phdr_vaddr = 0;
   for (size_t i = 0; i < ehdr->e_phnum; ++i) {
     Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)mmaped_file + ehdr->e_phoff) + i * ehdr->e_phentsize);
     // phdr validity check
-    uint64_t segment_vaddr_boundary;
+    uint64_t segment_vaddr_end;
     if (phdr->p_vaddr < last_phdr_vaddr
      || phdr->p_offset >= file_size
      || phdr->p_filesz > phdr->p_memsz
      || (phdr->p_align & (phdr->p_align - 1)) != 0
-     || __builtin_add_overflow(phdr->p_vaddr, phdr->p_memsz, &segment_vaddr_boundary)
+     || __builtin_add_overflow(phdr->p_vaddr, phdr->p_memsz, &segment_vaddr_end)
     ) {
       log_info("phdr(index: %lu) is invalid", i);
       log_info("phdr->p_align: %lu", phdr->p_align);
