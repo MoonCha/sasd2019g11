@@ -161,6 +161,16 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       return_code = ERR_NOMEM;
       goto fail;
     }
+    twelf_section->internal->sh_addralign = shdr->sh_addralign;
+    twelf_section->internal->sh_entsize = shdr->sh_entsize;
+    twelf_section->internal->sh_info = shdr->sh_info;
+    twelf_section->internal->sh_offset = shdr->sh_offset;
+    twelf_section->name = (char *)((uintptr_t)mmaped_file + shstr_shdr->sh_offset + shdr->sh_name);
+    twelf_section->address = shdr->sh_addr;
+    twelf_section->size = shdr->sh_size;
+    twelf_section->type = shdr->sh_type;
+    twelf_section->flags = shdr->sh_flags;
+    twelf_section->link = &section_table[shdr->sh_link];
   }
 
   // create segement table with validation
@@ -197,6 +207,16 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       return_code = ERR_NOMEM;
       goto fail;
     }
+    twelf_segment->internal->p_offset = phdr->p_offset;
+    twelf_segment->internal->p_paddr = phdr->p_paddr;
+    twelf_segment->internal->p_align = phdr->p_align;
+    twelf_segment->type = phdr->p_type;
+    twelf_segment->vaddr = phdr->p_vaddr;
+    twelf_segment->filesize = phdr->p_filesz;
+    twelf_segment->memsize = phdr->p_memsz;
+    twelf_segment->readable = phdr->p_flags & PF_R;
+    twelf_segment->writeable = phdr->p_flags & PF_W;
+    twelf_segment->executable = phdr->p_flags & PF_X;
   }
 
   // replicate path
