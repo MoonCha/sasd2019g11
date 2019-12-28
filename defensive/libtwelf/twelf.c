@@ -185,7 +185,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   for (size_t i = 0; i < ehdr->e_phnum; ++i) {
     Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)mmaped_file + ehdr->e_phoff) + i * ehdr->e_phentsize);
     // phdr validity check
-    if (phdr->p_vaddr >= last_phdr_vaddr
+    if (phdr->p_vaddr < last_phdr_vaddr
      || phdr->p_offset >= file_size
      || phdr->p_filesz > phdr->p_memsz
      || (phdr->p_align & (phdr->p_align - 1)) != 0
