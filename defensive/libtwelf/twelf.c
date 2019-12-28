@@ -94,7 +94,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  Elf64_Off shdr_boundary = 0;
+  Elf64_Off shdr_boundary;
   if (__builtin_mul_overflow(ehdr->e_shnum, ehdr->e_shentsize, &shdr_boundary)
    || __builtin_add_overflow(ehdr->e_shoff, shdr_boundary, &shdr_boundary)) {
      log_info("shdr_boundary calcuation overflow");
@@ -107,7 +107,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  Elf64_Off phdr_boundary = 0;
+  Elf64_Off phdr_boundary;
   if (__builtin_mul_overflow(ehdr->e_phnum, ehdr->e_phentsize, &phdr_boundary)
    || __builtin_add_overflow(ehdr->e_phoff, phdr_boundary, &phdr_boundary)) {
      log_info("phdr_boundary calcuation overflow");
@@ -134,13 +134,15 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + i * ehdr->e_shentsize);
     log_info("shdr->sh_entsize: %lu", shdr->sh_entsize);
     // shdr validity check
-    Elf64_Off section_boundary = 0;
+    Elf64_Off section_boundary;
+    uint64_t section_vaddr_boundary;
     if (shdr->sh_name >= shstr_shdr->sh_size
      || shdr->sh_offset >= file_size
      || __builtin_add_overflow(shdr->sh_offset, shdr->sh_size, &section_boundary)
      || section_boundary > file_size
      || shdr->sh_link >= ehdr->e_shnum
      || (shdr->sh_addralign & (shdr->sh_addralign - 1)) != 0
+     || __builtin_add_overflow(shdr->sh_addr, shdr->sh_size, &section_vaddr_boundary)
     ) {
       log_info("shdr(index: %lu) is invalid", i);
       log_info("shdr->sh_addralign: %lu", shdr->sh_addralign);
@@ -185,10 +187,12 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   for (size_t i = 0; i < ehdr->e_phnum; ++i) {
     Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)mmaped_file + ehdr->e_phoff) + i * ehdr->e_phentsize);
     // phdr validity check
+    uint64_t segment_vaddr_boundary;
     if (phdr->p_vaddr < last_phdr_vaddr
      || phdr->p_offset >= file_size
      || phdr->p_filesz > phdr->p_memsz
      || (phdr->p_align & (phdr->p_align - 1)) != 0
+     || __builtin_add_overflow(phdr->p_vaddr, phdr->p_memsz, &segment_vaddr_boundary)
     ) {
       log_info("phdr(index: %lu) is invalid", i);
       log_info("phdr->p_align: %lu", phdr->p_align);
