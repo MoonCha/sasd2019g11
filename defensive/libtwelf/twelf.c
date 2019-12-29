@@ -277,7 +277,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   twelf_file_internal->file_size = file_size;
   twelf_file_internal->mmap_base = mmaped_file;
 
-  // assemble LibtwelfeFile and update result
+  // assemble LibtwelfFile and update result
   twelf_file = (struct LibtwelfFile *)malloc(sizeof(struct LibtwelfFile));
   if (twelf_file == NULL) {
     log_info("malloc error");
@@ -363,21 +363,22 @@ void libtwelf_close(struct LibtwelfFile *twelf)
 
 int libtwelf_getSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char **data, size_t *len)
 {
-  (void) twelf;
-  (void) section;
-  (void) data;
-  (void) len;
-  return ERR_NOT_IMPLEMENTED;
+  if (section->type == SHT_NOBITS) {
+    *len = 0;
+    *data = NULL;
+    return SUCCESS;
+  }
+  *data = (char *)((uintptr_t)twelf->internal->mmap_base + section->internal->sh_offset);
+  *len = section->size;
+  return SUCCESS;
 }
 
 int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char **data, size_t *filesz, size_t *memsz)
 {
-  (void) twelf;
-  (void) segment;
-  (void) data;
-  (void) filesz;
-  (void) memsz;
-  return ERR_NOT_IMPLEMENTED;
+  *data = (char *)((uintptr_t)twelf->internal->mmap_base + segment->internal->p_offset);
+  *filesz = segment->filesize;
+  *memsz = segment->memsize;
+  return SUCCESS;
 }
 
 int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char *data, size_t filesz, size_t memsz)
@@ -460,7 +461,16 @@ int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSec
   (void) twelf;
   (void) section;
   (void) result;
-  return ERR_NOT_IMPLEMENTED;
+  uint64_t section_start = section->address;
+  uint64_t section_end = section->address + section->size;
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *segment = &twelf->segment_table[i];
+    if (segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
+      *result = segment;
+      return SUCCESS;
+    }
+  }
+  return ERR_NOT_FOUND;
 }
 
 int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_Addr *st_value)
