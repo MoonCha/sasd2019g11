@@ -203,7 +203,6 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  log_info("section_table: %p", section_table);
   Elf64_Shdr *shstr_shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
   for (size_t i = 0; i < ehdr->e_shnum; ++i) {
     Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + i * ehdr->e_shentsize);
@@ -465,7 +464,7 @@ int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSec
   uint64_t section_end = section->address + section->size;
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *segment = &twelf->segment_table[i];
-    if (segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
+    if (segment->type == PT_LOAD && segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
       *result = segment;
       return SUCCESS;
     }
