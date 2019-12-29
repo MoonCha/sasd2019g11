@@ -478,7 +478,37 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   (void) twelf;
   (void) name;
   (void) st_value;
-  return ERR_NOT_IMPLEMENTED;
+  bool symtab_found = false;
+  const char *symtab_section_data;
+  const char *strtab_section_data;
+  size_t symtab_section_size = 0;
+  size_t strtab_section_size = 0;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    if (strcmp(section->name, ".symtab") == 0) {
+      libtwelf_getSectionData(twelf, section, &symtab_section_data, &symtab_section_size);
+      libtwelf_getSectionData(twelf, section->link, &strtab_section_data, &strtab_section_size);
+      symtab_found = true;
+      break;
+    }
+  }
+  if (!symtab_found) {
+    return ERR_ELF_FORMAT;
+  }
+  log_info("symtab_section_size: %lu, sizeof(Elf64_Sym): %lu", symtab_section_size, sizeof(Elf64_Sym));
+  size_t symbol_count = symtab_section_size / sizeof(Elf64_Sym);
+  for (size_t i = 0; i < symbol_count; ++i) {
+    Elf64_Sym *symbol = &((Elf64_Sym *)symtab_section_data)[i];
+    // TODO: when to check st_name validity?: resolveSymbol or open
+    if (symbol->st_name >= strtab_section_size) {
+      return ERR_ELF_FORMAT;
+    }
+    if (strcmp(name, strtab_section_data + symbol->st_name) == 0) {
+      *st_value = symbol->st_value;
+      return SUCCESS;
+    }
+  }
+  return ERR_NOT_FOUND;
 }
 
 int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* section, const char *name, unsigned char type, Elf64_Addr st_value)
