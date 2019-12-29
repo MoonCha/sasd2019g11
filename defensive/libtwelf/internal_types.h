@@ -10,8 +10,8 @@
 
 struct LibtwelfFileInternal
 {
-  size_t file_size;
-  char *mmap_base;
+  size_t mmap_size;
+  char *mmap_base; // represents whole file only on libtwelf_open, else does not preserve section data & table (-> only for ehdr + phdr_table + segment data)
 };
 
 
@@ -25,8 +25,11 @@ struct LibtwelfSegmentInternal
 
 struct LibtwelfSectionInternal
 {
+  Elf64_Word sh_name;       /* Section name (string tbl index) */     // index into the .shstrtab section (must be valid)
   Elf64_Off sh_offset;      /* Section file offset */                 // must be within elf file (including size)
+  Elf64_Word sh_link;       /* Link to another section */             // must be valid index of another section
   Elf64_Word sh_info;       /* Additional section information */
   Elf64_Xword sh_addralign; /* Section alignment */                   // must be a power of 2, when writing a file section data must be aligned by this value
   Elf64_Xword sh_entsize;   /* Entry size if section holds table */
+  char *section_data;
 };
