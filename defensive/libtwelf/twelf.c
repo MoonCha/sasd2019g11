@@ -84,6 +84,15 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   // ehdr check validity
   Elf64_Ehdr *ehdr = (Elf64_Ehdr *)mmaped_file;
   log_info("sizeof(Elf64_Ehdr): %lu", sizeof(Elf64_Ehdr));
+  log_info("ehdr->e_version: %u", ehdr->e_version);
+  log_info("ehdr->e_ehsize: %u", ehdr->e_ehsize);
+  log_info("ehdr->e_phentsize: %u", ehdr->e_phentsize);
+  log_info("ehdr->e_shentsize: %u", ehdr->e_shentsize);
+  log_info("ehdr->e_phoff: %lu", ehdr->e_phoff);
+  log_info("ehdr->e_shoff: %lu", ehdr->e_shoff);
+  log_info("ehdr->shstrndx: %u", ehdr->e_shstrndx);
+  log_info("ehdr->e_phnum: %u", ehdr->e_phnum);
+  log_info("ehdr->e_shnum: %u", ehdr->e_shnum);
   if (memcmp(&ehdr->e_ident, "\x7f\x45\x4c\x46\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16) != 0
    || ehdr->e_version != EV_CURRENT
    || ehdr->e_ehsize != 64
@@ -94,14 +103,6 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
    || (ehdr->e_shnum > 0 && ehdr->e_shstrndx >= ehdr->e_shnum)
   ) {
     log_info("general ehdr values are not valid");
-    log_info("ehdr->e_version: %u", ehdr->e_version);
-    log_info("ehdr->e_ehsize: %u", ehdr->e_ehsize);
-    log_info("ehdr->e_phentsize: %u", ehdr->e_phentsize);
-    log_info("ehdr->e_shentsize: %u", ehdr->e_shentsize);
-    log_info("ehdr->e_phoff: %lu", ehdr->e_phoff);
-    log_info("ehdr->e_shoff: %lu", ehdr->e_shoff);
-    log_info("ehdr->shstrndx: %u", ehdr->e_shstrndx);
-    log_info("ehdr->e_shnum: %u", ehdr->e_shnum);
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
@@ -307,7 +308,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   // clean up
   free(pt_load_segment_boundary_table);
   close(fd);
-  log_info("Success");
+  log_info("libtwelf_open: Success");
   return return_code;
 
   fail:
@@ -533,7 +534,8 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
       Elf64_Addr section_vaddr = twelf_section->address;
       log_info("processing section(%s, index: %lu)", twelf_section->name, i);
-      if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND) {
+      if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
+       && twelf_section->type != SHT_NULL) {
         long cur_position = ftell(outfile);
         if (cur_position == -1) {
           log_info("ftell fail");
@@ -594,7 +596,14 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       return_value = ERR_IO;
       goto fail;
     }
+    log_info("shdr_table_position: %ld", shdr_table_position);
     shdr_table_position += (8 - (shdr_table_position % 8)) % 8;
+    log_info("shdr_table_position (aligned): %ld", shdr_table_position);
+    if (fseek(outfile, shdr_table_position, SEEK_SET)) {
+      log_info("fseek fail");
+      return_value = ERR_IO;
+      goto fail;
+    }
     if (fwrite(shdr_table, sizeof(Elf64_Shdr), twelf->number_of_sections, outfile) < twelf->number_of_sections) {
       log_info("fwrite error");
       return_value = ERR_IO;
