@@ -359,6 +359,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   return return_code;
 }
 
+
 void libtwelf_close(struct LibtwelfFile *twelf)
 {
   free(twelf->file_name);
@@ -420,8 +421,6 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
   (void) size;
   return ERR_NOT_IMPLEMENTED;
 }
-
-
 
 int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char *name_arg)
 {
@@ -527,6 +526,41 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       return_value = ERR_NOMEM;
       goto fail;
     }
+    // unusual case: section with SHF_ALLOC does not have associated segment
+    size_t non_alloc_section_data_start = file_size_wo_section_info;
+    for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+      struct LibtwelfSection *twelf_section = &twelf->section_table[i];
+      struct LibtwelfSegment *associated_twelf_segment;
+      if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC
+       && libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
+       && twelf_section->type != SHT_NULL
+      ) {
+        log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
+        uint64_t section_data_end = twelf_section->internal->sh_offset + twelf_section->size; // overflow checked by open & modification functions
+        non_alloc_section_data_start = section_data_end > non_alloc_section_data_start ? section_data_end : non_alloc_section_data_start;
+        if (fseek(outfile, twelf_section->internal->sh_offset, SEEK_SET)) {
+          log_info("fseek fail");
+          return_value = ERR_IO;
+          goto fail;
+        }
+        if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
+          log_info("fwrite error");
+          return_value = ERR_IO;
+          goto fail;
+        }
+        long section_data_end_position = ftell(outfile);
+        if (section_data_end_position == -1) {
+          log_info("ftell fail");
+          return_value = ERR_IO;
+          goto fail;
+        }
+      }
+    }
+    if (fseek(outfile, non_alloc_section_data_start, SEEK_SET)) {
+      log_info("fseek fail");
+      return_value = ERR_IO;
+      goto fail;
+    }
     for (size_t i = 0; i < twelf->number_of_sections; ++i) {
       Elf64_Shdr *section = &shdr_table[i];
       struct LibtwelfSection *twelf_section = &twelf->section_table[i];
@@ -534,8 +568,10 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
       Elf64_Addr section_vaddr = twelf_section->address;
       log_info("processing section(%s, index: %lu)", twelf_section->name, i);
-      if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
-       && twelf_section->type != SHT_NULL) {
+      if ((twelf_section->flags & SHF_ALLOC) != SHF_ALLOC
+       && libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
+       && twelf_section->type != SHT_NULL
+      ) {
         long cur_position = ftell(outfile);
         if (cur_position == -1) {
           log_info("ftell fail");
@@ -544,6 +580,8 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         }
         section_offset = cur_position;
         log_info("section(%s, index: %lu) offset recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->internal->sh_offset, section_offset);
+        /*
+        // relocate section SHF_ALLOC without associated segment
         if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC) {
           if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
             long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
@@ -558,6 +596,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           section_vaddr = section_vaddr - twelf_section->internal->sh_offset + section_offset; // TODO: overflow check?
           log_info("section(%s, index: %lu) vaddr recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->address, section_vaddr);
         }
+        */
         if (twelf_section->type != SHT_NOBITS) {
           if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
             log_info("fwrite error");
@@ -566,8 +605,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           }
         }
       } else {
-        log_info("section(%s, index: %lu) use original offset", twelf_section->name, i);
-        log_info("associated_twelf_segment->vaddr: %lu, associated_twelf_segment->memsize: %lu", associated_twelf_segment->vaddr, associated_twelf_segment->memsize);
+        log_info("section(%s, index: %lu) uses original offset", twelf_section->name, i);
       }
       section->sh_name = twelf_section->internal->sh_name;
       section->sh_type = twelf_section->type;
