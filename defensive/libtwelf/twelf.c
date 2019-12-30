@@ -45,9 +45,9 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   int return_code = SUCCESS;
 
   // need resource management
-  int fd = -1;
+  FILE *file = NULL;
   size_t file_size;
-  char *mmaped_file = MAP_FAILED;
+  char *file_data = NULL;
   struct LibtwelfSegment *segment_table = NULL;
   Elf64_Off (*pt_load_segment_boundary_table)[2] = NULL;
   struct LibtwelfSection *section_table = NULL;
@@ -56,33 +56,43 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   struct LibtwelfFile *twelf_file = NULL;
 
   // open and read file
-  fd = open(path, O_RDONLY);
-  if (fd == -1) {
-    log_info("fd error");
+  file = fopen(path, "rb");
+  if (file == NULL) {
+    log_info("fopen error");
     return_code = ERR_IO;
     goto fail;
   }
-  struct stat file_stat;
-  if (fstat(fd, &file_stat)) {
-    log_info("fstat error");
+  if (fseek(file, 0, SEEK_END)) {
+    log_info("fseek error");
     return_code = ERR_IO;
     goto fail;
   }
-  file_size = (size_t)file_stat.st_size;
+  long ftell_res = ftell(file);
+  if (ftell_res == -1) {
+    log_info("ftell error");
+    return_code = ERR_IO;
+    goto fail;
+  }
+  if (fseek(file, 0, SEEK_SET)) {
+    log_info("fseek error");
+    return_code = ERR_IO;
+    goto fail;
+  }
+  file_size = (size_t)ftell_res;
   if (file_size < sizeof(Elf64_Ehdr)) {
     log_info("file size too small");
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  mmaped_file = mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-  if (mmaped_file == MAP_FAILED) {
-    log_info("mmap error");
+  file_data = (char *)malloc(file_size);
+  if (fread(file_data, 1, file_size, file) < file_size) {
+    log_info("fread error");
     return_code = ERR_IO;
     goto fail;
   }
 
   // ehdr check validity
-  Elf64_Ehdr *ehdr = (Elf64_Ehdr *)mmaped_file;
+  Elf64_Ehdr *ehdr = (Elf64_Ehdr *)file_data;
   log_info("sizeof(Elf64_Ehdr): %lu", sizeof(Elf64_Ehdr));
   log_info("ehdr->e_version: %u", ehdr->e_version);
   log_info("ehdr->e_ehsize: %u", ehdr->e_ehsize);
@@ -149,7 +159,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   Elf64_Off last_pt_load_phdr_vaddr = 0;
   Elf64_Xword last_pt_load_phdr_vaddr_end = 0;
   for (size_t i = 0; i < ehdr->e_phnum; ++i) {
-    Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)mmaped_file + ehdr->e_phoff) + i * ehdr->e_phentsize);
+    Elf64_Phdr *phdr = (Elf64_Phdr *)(((uintptr_t)file_data + ehdr->e_phoff) + i * ehdr->e_phentsize);
     // phdr validity check
     Elf64_Off segment_end;
     uint64_t segment_vaddr_end;
@@ -208,9 +218,9 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  Elf64_Shdr *shstr_shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
+  Elf64_Shdr *shstr_shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
   for (size_t i = 0; i < ehdr->e_shnum; ++i) {
-    Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)mmaped_file + ehdr->e_shoff) + i * ehdr->e_shentsize);
+    Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + i * ehdr->e_shentsize);
     log_info("shdr->sh_entsize: %lu", shdr->sh_entsize);
     // shdr validity check
     Elf64_Off section_end;
@@ -255,7 +265,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       return_code = ERR_NOMEM;
       goto fail;
     }
-    char *section_data = (char *)((uintptr_t)mmaped_file + shdr->sh_offset);
+    char *section_data = (char *)((uintptr_t)file_data + shdr->sh_offset);
     memcpy(twelf_section->internal->section_data, section_data, shdr->sh_size);
     twelf_section->internal->sh_addralign = shdr->sh_addralign;
     twelf_section->internal->sh_entsize = shdr->sh_entsize;
@@ -263,7 +273,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     twelf_section->internal->sh_info = shdr->sh_info;
     twelf_section->internal->sh_offset = shdr->sh_offset; // TODO: remove?
     twelf_section->internal->sh_name = shdr->sh_name;
-    twelf_section->name = (char *)((uintptr_t)mmaped_file + shstr_shdr->sh_offset + shdr->sh_name);
+    twelf_section->name = (char *)((uintptr_t)file_data + shstr_shdr->sh_offset + shdr->sh_name);
     twelf_section->address = shdr->sh_addr;
     twelf_section->size = shdr->sh_size;
     twelf_section->type = shdr->sh_type;
@@ -288,8 +298,8 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  twelf_file_internal->mmap_size = file_size;
-  twelf_file_internal->mmap_base = mmaped_file;
+  twelf_file_internal->file_size = file_size;
+  twelf_file_internal->file_data = file_data;
 
   // assemble LibtwelfFile and update result
   twelf_file = (struct LibtwelfFile *)malloc(sizeof(struct LibtwelfFile));
@@ -308,7 +318,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
 
   // clean up
   free(pt_load_segment_boundary_table);
-  close(fd);
+  fclose(file);
   log_info("libtwelf_open: Success");
   return return_code;
 
@@ -346,11 +356,11 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     }
     free(segment_table);
   }
-  if (mmaped_file != MAP_FAILED) {
-    munmap(mmaped_file, file_size);
+  if (file_data != NULL) {
+    free(file_data);
   }
-  if (fd != -1) {
-    close(fd);
+  if (file != NULL) {
+    fclose(file);
   }
   if (return_code == SUCCESS) {
     log_warn("Fail with SUCCESS");
@@ -375,7 +385,7 @@ void libtwelf_close(struct LibtwelfFile *twelf)
     free(twelf_segment->internal);
   }
   free(twelf->segment_table);
-  munmap(twelf->internal->mmap_base, twelf->internal->mmap_size);
+  free(twelf->internal->file_data);
   free(twelf->internal);
   free(twelf);
 }
@@ -398,7 +408,7 @@ int libtwelf_getSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
 int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char **data, size_t *filesz, size_t *memsz)
 {
   (void) twelf;
-  *data = (char *)((uintptr_t)twelf->internal->mmap_base + segment->internal->p_offset);
+  *data = (char *)((uintptr_t)twelf->internal->file_data + segment->internal->p_offset);
   *filesz = segment->filesize;
   *memsz = segment->memsize;
   return SUCCESS;
@@ -539,10 +549,10 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   }
 
   // write (temporary ehdr), phdr table, segment data
-  if (twelf->internal->mmap_size < file_size_wo_section_info) {
+  if (twelf->internal->file_size < file_size_wo_section_info) {
     log_warn("FATAL ERROR: wrong implementation somewhere");
   }
-  if (fwrite(twelf->internal->mmap_base, 1, file_size_wo_section_info, outfile) < file_size_wo_section_info) {
+  if (fwrite(twelf->internal->file_data, 1, file_size_wo_section_info, outfile) < file_size_wo_section_info) {
     log_info("fwrite error");
     return_value = ERR_IO;
     goto fail;
@@ -681,7 +691,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     }
   }
   // reconstruct and write ehdr
-  Elf64_Ehdr *ehdr = (Elf64_Ehdr *)twelf->internal->mmap_base;
+  Elf64_Ehdr *ehdr = (Elf64_Ehdr *)twelf->internal->file_data;
   log_info("ehdr = %p", ehdr);
   ehdr->e_shoff = shdr_table_position;
   log_info("ehdr->e_shoff: %lu", ehdr->e_shoff);
