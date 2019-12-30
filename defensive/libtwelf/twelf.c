@@ -134,13 +134,13 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   }
 
   // create segement table with validation
-  segment_table = (struct LibtwelfSegment *)calloc(sizeof(struct LibtwelfSegment), ehdr->e_phnum + 1); // 1 for prevening zero-size allocation
+  segment_table = (struct LibtwelfSegment *)calloc(sizeof(struct LibtwelfSegment), ehdr->e_phnum > 0 ? ehdr->e_phnum : 1); // 1 for preventing zero-size allocation
   if (segment_table == NULL) {
     log_info("calloc error");
     return_code = ERR_NOMEM;
     goto fail;
   }
-  pt_load_segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, ehdr->e_phnum + 1); // 1 for prevening zero-size allocation
+  pt_load_segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, ehdr->e_phnum > 0 ? ehdr->e_phnum : 1); // 1 for preventing zero-size allocation
   if (pt_load_segment_boundary_table == NULL) {
     log_info("calloc error");
     return_code = ERR_NOMEM;
@@ -201,7 +201,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   }
 
   // create section table with validation
-  section_table = (struct LibtwelfSection *)calloc(sizeof(struct LibtwelfSection), ehdr->e_shnum + 1); // 1 for prevening zero-size allocation
+  section_table = (struct LibtwelfSection *)calloc(sizeof(struct LibtwelfSection), ehdr->e_shnum > 0 ? ehdr->e_shnum : 1); // 1 for preventing zero-size allocation
   if (section_table == NULL) {
     log_info("calloc error");
     return_code = ERR_NOMEM;
@@ -248,7 +248,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       return_code = ERR_NOMEM;
       goto fail;
     }
-    twelf_section->internal->section_data = (char *)malloc(shdr->sh_size + 1); // 1 for preventing zero-size allocation
+    twelf_section->internal->section_data = (char *)malloc(shdr->sh_size > 0 ? shdr->sh_size : 1); // 1 for preventing zero-size allocation
     if (twelf_section->internal->section_data == NULL) {
       log_info("malloc error");
       return_code = ERR_NOMEM;
@@ -519,7 +519,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   // reconstruct shdr table and also write data if no associated segment exists
   long shdr_table_position = 0;
   if (twelf->number_of_sections > 0) {
-    shdr_table = (Elf64_Shdr *)calloc(sizeof(Elf64_Shdr), twelf->number_of_sections + 1); // 1 for prevening zero-size allocation
+    shdr_table = (Elf64_Shdr *)calloc(sizeof(Elf64_Shdr), twelf->number_of_sections > 0 ? twelf->number_of_sections : 1); // 1 for preventing zero-size allocation
     if (shdr_table == NULL) {
       log_info("calloc error");
       return_value = ERR_NOMEM;
