@@ -539,19 +539,28 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       struct LibtwelfSegment *associated_twelf_segment;
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
       if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND) {
-        if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
-          long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
-          if (fseek(outfile, align_offset, SEEK_CUR)) {
-            log_info("fseek fail");
+        section_offset = cur_position;
+        // if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
+        //   long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
+        //   log_info("align_offset: %u",  align_offset);
+        //   if (fseek(outfile, align_offset, SEEK_CUR)) {
+        //     log_info("fseek fail");
+        //     return_value = ERR_IO;
+        //     goto fail;
+        //   }
+        //   section_offset = ftell(outfile);
+        //   if (section_offset == -1) {
+        //     log_info("ftell fail");
+        //     return_value = ERR_IO;
+        //     goto fail;
+        //   }
+        // }
+        if (twelf_section->type != SHT_NOBITS) {
+          if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
+            log_info("fwrite error");
             return_value = ERR_IO;
             goto fail;
           }
-        }
-        section_offset = cur_position;
-        if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
-          log_info("fwrite error");
-          return_value = ERR_IO;
-          goto fail;
         }
       }
       section->sh_name = twelf_section->internal->sh_name;
