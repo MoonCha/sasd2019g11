@@ -181,6 +181,7 @@ int __wrap_ftell(FILE *stream)
 int __wrap_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
   if (check_io_failcounter()) {
+    errno = EIO;
     return 0;
   }
   return __real_fread(ptr, size, nmemb, stream);
