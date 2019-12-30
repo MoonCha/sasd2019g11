@@ -80,7 +80,7 @@ shdrsize equ $ - shdr
 shdr2:                               ; elf64_shdr
   dd str_text - shstrtab             ;   sh_name
   dd 1                               ;   sh_type
-  dq 5                               ;   sh_flags
+  dq 6                               ;   sh_flags
   dq segment1                        ;   sh_addr
   dq segment1 - $$                   ;   sh_offset
   dq segment1size                    ;   sh_size
@@ -92,7 +92,7 @@ shdr2:                               ; elf64_shdr
 shdr3:                               ; elf64_shdr
   dd str_shstrtab - shstrtab         ;   sh_name
   dd 3                               ;   sh_type
-  dq 5                               ;   sh_flags
+  dq 0                               ;   sh_flags
   dq 0                               ;   sh_addr
   dq shstrtab - $$                   ;   sh_offset
   dq shstrtabsize                    ;   sh_size

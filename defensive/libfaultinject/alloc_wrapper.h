@@ -24,7 +24,8 @@ void set_alloc_failcounter(size_t n);
 
 /**
  * Control whether future file operations will artificially fail.
- * This affects open, fopen, close, fclose and fstat.
+ * This affects open, fopen, close, fclose, fstat, fseek, ftell, fread, fwrite,
+ * read and write.
  * If @a n == 0, nothing will be done. Otherwise, the nth usage
  * will fail, returning @a NULL.
  * 

@@ -21,6 +21,12 @@ extern FILE *__real_fopen(const char *pathname, const char *mode);
 extern int __real_close(int fildes);
 extern int __real_fclose(FILE *stream);
 extern int __real_fstat(int fildes, struct stat *buf);
+extern int __real_fseek(FILE *stream, long offset, int whence);
+extern int __real_ftell(FILE *stream);
+extern size_t __real_fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+extern size_t __real_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+extern ssize_t __real_read(int fd, void *buf, size_t count);
+extern ssize_t __real_write(int fd, const void *buf, size_t count);
 
 size_t alloc_failcounter = 0;
 size_t io_failcounter = 0;
@@ -152,6 +158,59 @@ int __wrap_fstat(int fildes, struct stat *buf)
     return -1;
   }
   return __real_fstat(fildes, buf);
+}
+
+int __wrap_fseek(FILE *stream, long offset, int whence)
+{
+  if (check_io_failcounter()) {
+    errno = EIO;
+    return -1;
+  }
+  return __real_fseek(stream, offset, whence);
+}
+
+int __wrap_ftell(FILE *stream)
+{
+  if (check_io_failcounter()) {
+    errno = EIO;
+    return -1;
+  }
+  return __real_ftell(stream);
+}
+
+int __wrap_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  if (check_io_failcounter()) {
+    errno = EIO;
+    return 0;
+  }
+  return __real_fread(ptr, size, nmemb, stream);
+}
+
+int __wrap_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  if (check_io_failcounter()) {
+    return 0;
+  }
+  return __real_fwrite(ptr, size, nmemb, stream);
+}
+
+ssize_t __wrap_read(int fd, void *buf, size_t count)
+{
+  if (check_io_failcounter()) {
+    errno = EIO;
+    return -1;
+  }
+  return __real_read(fd, buf, count);
+}
+
+ssize_t __wrap_write(int fd, const void *buf, size_t count)
+{
+  if (check_io_failcounter()) {
+    errno = EIO;
+    return -1;
+  }
+  return __real_write(fd, buf, count);
 }
 
 
