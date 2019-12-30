@@ -528,7 +528,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     goto fail;
   }
   // construct phdr related info
-  segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, twelf->number_of_segments + 1); // 1 for prevening zero-size allocation
+  segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
   if (segment_boundary_table == NULL) {
     log_info("calloc error");
     return_value = ERR_NOMEM;
