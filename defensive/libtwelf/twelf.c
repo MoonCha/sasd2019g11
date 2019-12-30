@@ -527,19 +527,21 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       return_value = ERR_NOMEM;
       goto fail;
     }
-    long cur_position = ftell(outfile);
-    if (cur_position == -1) {
-      log_info("ftell fail");
-      return_value = ERR_IO;
-      goto fail;
-    }
     for (size_t i = 0; i < twelf->number_of_sections; ++i) {
       Elf64_Shdr *section = &shdr_table[i];
       struct LibtwelfSection *twelf_section = &twelf->section_table[i];
       struct LibtwelfSegment *associated_twelf_segment;
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
+      log_info("processing section(%s, index: %lu)", twelf_section->name, i);
       if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND) {
+        long cur_position = ftell(outfile);
+        if (cur_position == -1) {
+          log_info("ftell fail");
+          return_value = ERR_IO;
+          goto fail;
+        }
         section_offset = cur_position;
+        log_info("section(%s, index: %lu) offset recalculated", twelf_section->name, i);
         // if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
         //   long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
         //   log_info("align_offset: %u",  align_offset);
@@ -562,6 +564,9 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
             goto fail;
           }
         }
+      } else {
+        log_info("section(%s, index: %lu) use original offset", twelf_section->name, i);
+        log_info("associated_twelf_segment->vaddr: %lu, associated_twelf_segment->memsize: %lu", associated_twelf_segment->vaddr, associated_twelf_segment->memsize);
       }
       section->sh_name = twelf_section->internal->sh_name;
       section->sh_type = twelf_section->type;
