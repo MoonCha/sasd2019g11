@@ -395,7 +395,6 @@ int libtwelf_getSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
 int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char **data, size_t *filesz, size_t *memsz)
 {
   (void) twelf;
-  // TODO: remove?
   *data = (char *)((uintptr_t)twelf->internal->mmap_base + segment->internal->p_offset);
   *filesz = segment->filesize;
   *memsz = segment->memsize;
@@ -643,6 +642,9 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
 int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSection *section, struct LibtwelfSegment **result)
 {
+  if (section->flags & SHF_ALLOC != SHF_ALLOC) {
+    return ERR_NOT_FOUND;
+  }
   uint64_t section_start = section->address;
   uint64_t section_end = section->address + section->size;
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
