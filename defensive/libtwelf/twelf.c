@@ -188,6 +188,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       return_code = ERR_NOMEM;
       goto fail;
     }
+    twelf_segment->internal->index = i;
     twelf_segment->internal->p_offset = phdr->p_offset;
     twelf_segment->internal->p_paddr = phdr->p_paddr;
     twelf_segment->internal->p_align = phdr->p_align;
@@ -405,11 +406,46 @@ int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
 
 int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char *data, size_t filesz, size_t memsz)
 {
-  (void) twelf;
-  (void) segment;
   (void) data;
   (void) filesz;
   (void) memsz;
+  // need resource management
+  Elf64_Off (*pt_load_segment_boundary_table)[2] = NULL;
+
+  // parameter validation
+  if (filesz > memsz) {
+    return ERR_INVALID_ARG;
+  }
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    uint64_t section_start = section->address;
+    uint64_t section_end = section->address + section->size;
+    if (segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
+      return ERR_INVALID_ARG;
+    }
+  }
+  uint64_t altered_segment_start = segment->vaddr;
+  uint64_t altered_segment_end;
+  if (__builtin_add_overflow(segment->vaddr, memsz, &altered_segment_end)) {
+    return ERR_INVALID_ARG;
+  }
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
+    if (target_segment == segment) { // TODO: pointer comparison is not safe; check index?
+      continue;
+    }
+    uint64_t target_segment_start = target_segment->vaddr;
+    uint64_t target_segment_end = target_segment->vaddr + target_segment->memsize; // overflow checked by open
+    if (is_overlap(altered_segment_start, altered_segment_end, target_segment_start, target_segment_end)) {
+      return ERR_INVALID_ARG;
+    }
+  }
+  uint64_t segment_file_end;
+  if (__builtin_add_overflow(segment->internal->p_offset, filesz, &segment_file_end)) {
+    return ERR_INVALID_ARG;
+  }
+
+  // TODO: write data
   return ERR_NOT_IMPLEMENTED;
 }
 
@@ -690,10 +726,10 @@ int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSec
   //   return ERR_NOT_FOUND;
   // }
   uint64_t section_start = section->address;
-  uint64_t section_end = section->address + section->size;
+  uint64_t section_end = section->address + section->size; // overflow checked by open
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *segment = &twelf->segment_table[i];
-    if (segment->type == PT_LOAD && segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
+    if (segment->type == PT_LOAD && segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) { // overflow checked by open
       *result = segment;
       return SUCCESS;
     }
