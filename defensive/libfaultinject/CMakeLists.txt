@@ -16,6 +16,12 @@ TARGET_LINK_OPTIONS(libfaultinject PUBLIC -rdynamic
     -Wl,--wrap=close
     -Wl,--wrap=fclose
     -Wl,--wrap=fstat
+    -Wl,--wrap=fseek
+    -Wl,--wrap=ftell
+    -Wl,--wrap=fread
+    -Wl,--wrap=fwrite
+    -Wl,--wrap=read
+    -Wl,--wrap=write
     -Wl,--wrap=mmap)
 
 #
