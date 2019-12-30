@@ -531,6 +531,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       struct LibtwelfSection *twelf_section = &twelf->section_table[i];
       struct LibtwelfSegment *associated_twelf_segment;
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
+      Elf64_Addr section_vaddr = twelf_section->address;
       log_info("processing section(%s, index: %lu)", twelf_section->name, i);
       if (libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND) {
         long cur_position = ftell(outfile);
@@ -540,22 +541,21 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           goto fail;
         }
         section_offset = cur_position;
-        log_info("section(%s, index: %lu) offset recalculated", twelf_section->name, i);
-        // if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
-        //   long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
-        //   log_info("align_offset: %u",  align_offset);
-        //   if (fseek(outfile, align_offset, SEEK_CUR)) {
-        //     log_info("fseek fail");
-        //     return_value = ERR_IO;
-        //     goto fail;
-        //   }
-        //   section_offset = ftell(outfile);
-        //   if (section_offset == -1) {
-        //     log_info("ftell fail");
-        //     return_value = ERR_IO;
-        //     goto fail;
-        //   }
-        // }
+        log_info("section(%s, index: %lu) offset recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->internal->sh_offset, section_offset);
+        if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC) {
+          if (twelf_section->internal->sh_addralign > 1 && cur_position % twelf_section->internal->sh_addralign != 0) {
+            long align_offset = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
+            log_info("align_offset: %ld",  align_offset);
+            if (fseek(outfile, align_offset, SEEK_CUR)) {
+              log_info("fseek fail");
+              return_value = ERR_IO;
+              goto fail;
+            }
+            section_offset += align_offset;
+          }
+          section_vaddr = section_vaddr - twelf_section->internal->sh_offset + section_offset; // TODO: overflow check?
+          log_info("section(%s, index: %lu) vaddr recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->address, section_vaddr);
+        }
         if (twelf_section->type != SHT_NOBITS) {
           if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
             log_info("fwrite error");
@@ -570,7 +570,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       section->sh_name = twelf_section->internal->sh_name;
       section->sh_type = twelf_section->type;
       section->sh_flags = twelf_section->flags;
-      section->sh_addr = twelf_section->address;
+      section->sh_addr = section_vaddr;
       section->sh_offset = section_offset;
       section->sh_size = twelf_section->size;
       section->sh_link = twelf_section->internal->sh_link;
@@ -594,6 +594,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       return_value = ERR_IO;
       goto fail;
     }
+    shdr_table_position += (8 - (shdr_table_position % 8)) % 8;
     if (fwrite(shdr_table, sizeof(Elf64_Shdr), twelf->number_of_sections, outfile) < twelf->number_of_sections) {
       log_info("fwrite error");
       return_value = ERR_IO;
@@ -642,7 +643,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
 int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSection *section, struct LibtwelfSegment **result)
 {
-  if (section->flags & SHF_ALLOC != SHF_ALLOC) {
+  if ((section->flags & SHF_ALLOC) != SHF_ALLOC) {
     return ERR_NOT_FOUND;
   }
   uint64_t section_start = section->address;
