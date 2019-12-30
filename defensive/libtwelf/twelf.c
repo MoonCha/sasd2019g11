@@ -409,9 +409,6 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
   (void) data;
   (void) filesz;
   (void) memsz;
-  // need resource management
-  Elf64_Off (*pt_load_segment_boundary_table)[2] = NULL;
-
   // parameter validation
   if (filesz > memsz) {
     return ERR_INVALID_ARG;
