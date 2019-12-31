@@ -830,7 +830,7 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     Elf64_Sym *symbol = (Elf64_Sym *)((uintptr_t)symtab_section_data + i * symbol_size);
     // TODO: when to check st_name validity?: resolveSymbol or open
     if (symbol->st_name >= strtab_section_size) {
-      continue;
+      return ERR_ELF_FORMAT;
     }
     if (strcmp(name, strtab_section_data + symbol->st_name) == 0) {
       *st_value = symbol->st_value;
