@@ -424,9 +424,6 @@ int libtwelf_getSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
 
 int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *segment, const char *data, size_t filesz, size_t memsz)
 {
-  (void) data;
-  (void) filesz;
-  (void) memsz;
   // parameter validation
   if (filesz > memsz) {
     return ERR_INVALID_ARG;
@@ -477,11 +474,60 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
 
 int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char *data, size_t size)
 {
-  (void) twelf;
-  (void) section;
-  (void) data;
-  (void) size;
-  return ERR_NOT_IMPLEMENTED;
+  // validation
+  uint64_t section_start = section->address;
+  uint64_t altered_section_end;
+  if (__builtin_add_overflow(section->address, size, &altered_section_end)) {
+    return ERR_INVALID_ARG;
+  }
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *target_section = &twelf->section_table[i]; // TODO: pointer comparison might not be good identity check; check index?
+    if (target_section == section) {
+      continue;
+    }
+    uint64_t target_section_start = target_section->address;
+    uint64_t target_section_end = target_section->address + target_section->size; // overflow checked by open
+    if (is_overlap(section_start, altered_section_end, target_section_start, target_section_end)) {
+      return ERR_INVALID_ARG;
+    }
+  }
+  struct LibtwelfSegment *associated_segment = NULL;
+  bool segment_found = libtwelf_getAssociatedSegment(twelf, section, &associated_segment) == SUCCESS;
+  if (segment_found) {
+    uint64_t associated_segment_end = associated_segment->vaddr + associated_segment->filesize; // overflow checked by open
+    if (altered_section_end > associated_segment_end) {
+      return ERR_INVALID_ARG;
+    }
+  }
+
+  // write
+  uint64_t original_size = section->size;
+  if (original_size > size) {
+    char* new_section_data = realloc(section->internal->section_data, size);
+    if (new_section_data == NULL) {
+      return ERR_NOMEM;
+    }
+    section->size = size;
+    section->internal->section_data = new_section_data;
+  }
+  memcpy(section->internal->section_data, data, size);
+  if (segment_found) {
+    uint64_t offset = section->address - associated_segment->vaddr;
+    uint64_t padding_count = original_size > size ? original_size - size : 0;
+    if (offset >= associated_segment->filesize) {
+      log_warn("WRONG IMPLEMENTATION: section offset inside associated_segment exceeds segment range");
+      return ERR_INVALID_ARG;
+    }
+    char *section_file_start = (char *)((uintptr_t)twelf->internal->file_data + associated_segment->internal->p_offset + offset);
+    log_info("offset: %lu", offset);
+    log_info("padding_count: %lu", padding_count);
+    memcpy(section_file_start, data, size);
+    for (size_t i = 0; i < padding_count; ++i) {
+      char *pad_target = (char *)((uintptr_t)section_file_start + size + i);
+      *pad_target = 0;
+    }
+  }
+  return SUCCESS;
 }
 
 int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char *name_arg)
@@ -583,7 +629,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
   // write (temporary ehdr) and segment data
   if (twelf->internal->file_size < file_size_wo_section_info) {
-    log_warn("FATAL ERROR: wrong implementation somewhere");
+    log_warn("WRONG IMPLEMENTATION: segment data buffer does not cover segment range");
   }
   if (fwrite(twelf->internal->file_data, 1, file_size_wo_section_info, outfile) < file_size_wo_section_info) {
     log_info("fwrite error");
