@@ -517,7 +517,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   int return_value = SUCCESS;
   // need resource management
   FILE *outfile = NULL;
-  Elf64_Off (*segment_boundary_table)[2] = NULL;
+  Elf64_Phdr *phdr_table = NULL;
   Elf64_Shdr *shdr_table = NULL;
   size_t file_size_wo_section_info = sizeof(Elf64_Ehdr);
 
@@ -527,28 +527,42 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     return_value = ERR_IO;
     goto fail;
   }
-  // construct phdr related info
-  segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
-  if (segment_boundary_table == NULL) {
-    log_info("calloc error");
-    return_value = ERR_NOMEM;
-    goto fail;
-  }
+  // reconstruct phdr table
   if (twelf->number_of_segments > 0) {
+    phdr_table = (Elf64_Phdr *)calloc(sizeof(Elf64_Phdr), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
+    if (phdr_table == NULL) {
+      log_info("calloc error");
+      return_value = ERR_NOMEM;
+      goto fail;
+    }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+      Elf64_Phdr *segment = &phdr_table[i];
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
-      if (twelf_segment->type == PT_LOAD) {
-        segment_boundary_table[i][0] = twelf_segment->vaddr;
-        segment_boundary_table[i][1] = twelf_segment->vaddr + twelf_segment->memsize; // overflow checked by open & modification functions
-      }
-      uint64_t segment_end_on_file = twelf_segment->internal->p_offset + twelf_segment->filesize;
-      if (segment_end_on_file > file_size_wo_section_info) { // overflow checked by open & modification functions
+      uint64_t segment_end_on_file = twelf_segment->internal->p_offset + twelf_segment->filesize; // overflow checked by open & modification functions
+      if (segment_end_on_file > file_size_wo_section_info) {
         file_size_wo_section_info = segment_end_on_file;
       }
+      segment->p_type = twelf_segment->type;
+      segment->p_flags = 0;
+      if (twelf_segment->executable) {
+        segment->p_flags |= PF_X;
+      }
+      if (twelf_segment->writeable) {
+        segment->p_flags |= PF_W;
+      }
+      if (twelf_segment->readable) {
+        segment->p_flags |= PF_R;
+      }
+      segment->p_offset = twelf_segment->internal->p_offset;
+      segment->p_vaddr = twelf_segment->vaddr;
+      segment->p_paddr = twelf_segment->internal->p_paddr;
+      segment->p_filesz = twelf_segment->filesize;
+      segment->p_memsz = twelf_segment->memsize;
+      segment->p_align = twelf_segment->internal->p_align;
     }
   }
 
-  // write (temporary ehdr), phdr table, segment data
+  // write (temporary ehdr) and segment data
   if (twelf->internal->file_size < file_size_wo_section_info) {
     log_warn("FATAL ERROR: wrong implementation somewhere");
   }
@@ -557,7 +571,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     return_value = ERR_IO;
     goto fail;
   }
-  log_info("wrote temp ehdr, phdr table, segment data");
+  log_info("wrote temp ehdr and segment data");
 
   // reconstruct shdr table and also write data if no associated segment exists
   long shdr_table_position = 0;
@@ -587,12 +601,6 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         }
         if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
           log_info("fwrite error");
-          return_value = ERR_IO;
-          goto fail;
-        }
-        long section_data_end_position = ftell(outfile);
-        if (section_data_end_position == -1) {
-          log_info("ftell fail");
           return_value = ERR_IO;
           goto fail;
         }
@@ -690,11 +698,37 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       goto fail;
     }
   }
+  // write phdr table
+  long phdr_table_position = 0;
+  if (twelf->number_of_segments > 0) {
+    phdr_table_position = ftell(outfile);
+    if (phdr_table_position == -1) {
+      log_info("ftell fail");
+      return_value = ERR_IO;
+      goto fail;
+    }
+    log_info("phdr_table_position: %ld", phdr_table_position);
+    phdr_table_position += (8 - (phdr_table_position % 8)) % 8;
+    log_info("phdr_table_position (aligned): %ld", phdr_table_position);
+    if (fseek(outfile, phdr_table_position, SEEK_SET)) {
+      log_info("fseek fail");
+      return_value = ERR_IO;
+      goto fail;
+    }
+    if (fwrite(phdr_table, sizeof(Elf64_Phdr), twelf->number_of_segments, outfile) < twelf->number_of_segments) {
+      log_info("fwrite error");
+      return_value = ERR_IO;
+      goto fail;
+    }
+  }
+
   // reconstruct and write ehdr
   Elf64_Ehdr *ehdr = (Elf64_Ehdr *)twelf->internal->file_data;
   log_info("ehdr = %p", ehdr);
   ehdr->e_shoff = shdr_table_position;
-  log_info("ehdr->e_shoff: %lu", ehdr->e_shoff);
+  ehdr->e_phoff = phdr_table_position;
+  log_info("reconstructed ehdr->e_shoff: %lu", ehdr->e_shoff);
+  log_info("reconstructed ehdr->e_phoff: %lu", ehdr->e_phoff);
   if (fseek(outfile, 0, SEEK_SET)) {
     log_info("fseek fail");
     return_value = ERR_IO;
@@ -710,15 +744,17 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   if (shdr_table != NULL) {
     free(shdr_table);
   }
-  free(segment_boundary_table);
+  if (phdr_table != NULL) {
+    free(phdr_table);
+  }
   fclose(outfile);
   return return_value;
   fail:
   if (shdr_table != NULL) {
     free(shdr_table);
   }
-  if (segment_boundary_table != NULL) {
-    free(segment_boundary_table);
+  if (phdr_table != NULL) {
+    free(phdr_table);
   }
   if (outfile != NULL) {
     fclose(outfile);
