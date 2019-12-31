@@ -218,14 +218,14 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  Elf64_Shdr *shstr_shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
+  Elf64_Shdr *shstrtab_shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
   for (size_t i = 0; i < ehdr->e_shnum; ++i) {
     Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + i * ehdr->e_shentsize);
     log_info("shdr->sh_entsize: %lu", shdr->sh_entsize);
     // shdr validity check
     Elf64_Off section_end;
     uint64_t section_vaddr_end;
-    if (shdr->sh_name >= shstr_shdr->sh_size
+    if (shdr->sh_name >= shstrtab_shdr->sh_size
      || shdr->sh_offset >= file_size
      || __builtin_add_overflow(shdr->sh_offset, shdr->sh_size, &section_end)
      || section_end > file_size
@@ -273,12 +273,17 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     twelf_section->internal->sh_info = shdr->sh_info;
     twelf_section->internal->sh_offset = shdr->sh_offset; // TODO: remove?
     twelf_section->internal->sh_name = shdr->sh_name;
-    twelf_section->name = (char *)((uintptr_t)file_data + shstr_shdr->sh_offset + shdr->sh_name);
+    twelf_section->name = NULL; // will be filled
     twelf_section->address = shdr->sh_addr;
     twelf_section->size = shdr->sh_size;
     twelf_section->type = shdr->sh_type;
     twelf_section->flags = shdr->sh_flags;
     twelf_section->link = &section_table[shdr->sh_link];
+  }
+  struct LibtwelfSection *shstrtab_twelf_section = &section_table[ehdr->e_shstrndx];
+  for (size_t i = 0; i < ehdr->e_shnum; ++i) {
+    struct LibtwelfSection *twelf_section = &section_table[i];
+    twelf_section->name = (char *)((uintptr_t)shstrtab_twelf_section->internal->section_data + twelf_section->internal->sh_name);
   }
 
   // replicate path
