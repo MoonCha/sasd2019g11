@@ -830,9 +830,9 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSection *section, struct LibtwelfSegment **result)
 {
   // TODO: restore ?
-  if ((section->flags & SHF_ALLOC) != SHF_ALLOC) {
-    return ERR_NOT_FOUND;
-  }
+  // if ((section->flags & SHF_ALLOC) != SHF_ALLOC) {
+  //   return ERR_NOT_FOUND;
+  // }
   uint64_t section_start = section->address;
   uint64_t section_end = section->address + section->size; // overflow checked by open
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
