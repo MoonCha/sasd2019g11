@@ -296,6 +296,8 @@ START_TEST (libtwelf_setSegmentData_basic_with_write)
   ck_assert_int_eq(filesz, 3);
   ck_assert_int_eq(memsz, 10);
   ck_assert(0 == memcmp(out_data, data, 3));
+
+  libtwelf_close(twelf);
 }
 END_TEST
 
