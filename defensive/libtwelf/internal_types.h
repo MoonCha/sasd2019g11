@@ -11,7 +11,7 @@
 struct LibtwelfFileInternal
 {
   size_t file_size;
-  char *file_data; // represents whole file only on libtwelf_open, else does not preserve section data & table (-> only for ehdr + phdr_table + segment data)
+  char *file_data; // represents whole file only on libtwelf_open, else only represents segment data
 };
 
 

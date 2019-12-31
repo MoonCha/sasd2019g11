@@ -373,6 +373,9 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
 
 void libtwelf_close(struct LibtwelfFile *twelf)
 {
+  if (twelf == NULL) {
+    return;
+  }
   free(twelf->file_name);
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *twelf_section = &twelf->section_table[i];
