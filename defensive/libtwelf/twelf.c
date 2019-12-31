@@ -438,7 +438,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
   }
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
-    if (target_segment == segment) { // TODO: pointer comparison is not safe; check index?
+    if (target_segment == segment) { // TODO: pointer comparison might not be good identity check; check index?
       continue;
     }
     uint64_t target_segment_start = target_segment->vaddr;
@@ -452,8 +452,19 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
     return ERR_INVALID_ARG;
   }
 
-  // TODO: write data
-  return ERR_NOT_IMPLEMENTED;
+  // write data
+  if (twelf->internal->file_size > segment_file_end) {
+    char* new_file_data = realloc(twelf->internal->file_data, segment_file_end);
+    if (new_file_data == NULL) {
+      return ERR_NOMEM;
+    }
+    twelf->internal->file_data = new_file_data;
+    twelf->internal->file_size = segment_file_end;
+  }
+  memcpy(twelf->internal->file_data + segment->internal->p_offset, data, filesz);
+  segment->filesize = filesz;
+  segment->memsize = memsz;
+  return SUCCESS;
 }
 
 int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char *data, size_t size)
