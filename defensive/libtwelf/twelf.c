@@ -446,7 +446,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
   }
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
-    if (target_segment == segment) { // TODO: pointer comparison might not be good identity check; check index?
+    if (target_segment->type != PT_LOAD || target_segment == segment) { // TODO: pointer comparison might not be good identity check; check index?
       continue;
     }
     uint64_t target_segment_start = target_segment->vaddr;
