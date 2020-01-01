@@ -647,6 +647,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
         new_sh_link--;
       }
     }
+    updated_section->internal->index = i;
     updated_section->internal->sh_link = new_sh_link;
     updated_section->link = &new_section_table[new_sh_link];
     current_index++;
