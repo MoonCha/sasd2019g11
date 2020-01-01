@@ -485,14 +485,14 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
 
   // write
   uint64_t original_size = section->size;
-  if (original_size > size) {
+  if (size > original_size) {
     char* new_section_data = realloc(section->internal->section_data, size);
     if (new_section_data == NULL) {
       return ERR_NOMEM;
     }
-    section->size = size;
     section->internal->section_data = new_section_data;
   }
+  section->size = size;
   memcpy(section->internal->section_data, data, size);
   if (segment_found) {
     uint64_t offset = section->address - associated_segment->vaddr;
