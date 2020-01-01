@@ -27,6 +27,7 @@ struct LibtwelfSegmentInternal
 
 struct LibtwelfSectionInternal
 {
+  size_t index; // index of LibtwelfSection inside section_table
   Elf64_Word sh_name;       /* Section name (string tbl index) */     // index into the .shstrtab section (must be valid)
   Elf64_Off sh_offset;      /* Section file offset */                 // must be within elf file (including size)
   Elf64_Word sh_link;       /* Link to another section */             // must be valid index of another section

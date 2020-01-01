@@ -267,6 +267,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     }
     char *section_data = (char *)((uintptr_t)file_data + shdr->sh_offset);
     memcpy(twelf_section->internal->section_data, section_data, shdr->sh_size);
+    twelf_section->internal->index = i;
     twelf_section->internal->sh_addralign = shdr->sh_addralign;
     twelf_section->internal->sh_entsize = shdr->sh_entsize;
     twelf_section->internal->sh_link = shdr->sh_link;
@@ -590,8 +591,79 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
 {
   // keep in mind to adjust the sh_link values (and the link pointers) for all
   // remaining sections as they may need to be updated
-  (void) twelf;
-  return ERR_NOT_IMPLEMENTED;
+  // need resource management
+  struct LibtwelfSection *new_section_table = NULL;
+
+  bool symtab_found = false;
+  size_t symtab_section_index;
+  size_t link_section_index;
+  struct LibtwelfSection *symtab_section;
+  struct LibtwelfSection *link_section;
+
+  // validation
+  for (size_t i = 1; i < twelf->number_of_sections; ++i) { // start from 1 because 0 is NULL section
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    if (strcmp(section->name, ".symtab") == 0) {
+      symtab_section_index = i;
+      link_section_index = section->internal->sh_link;
+      if (link_section_index == 0 || link_section_index >= twelf->number_of_sections) {
+        log_info(".symtab have invalid link: %lu", link_section_index);
+        return ERR_ELF_FORMAT;
+      }
+      symtab_section = section;
+      link_section = section->link;
+      symtab_found = true;
+      break;
+    }
+  }
+  if (!symtab_found) {
+    return ERR_ELF_FORMAT;
+  }
+
+  // reconstruct section_table
+  new_section_table = (struct LibtwelfSection *)calloc(sizeof(struct LibtwelfSection), twelf->number_of_sections);
+  if (new_section_table == NULL) {
+    log_info("calloc error");
+    return ERR_NOMEM;
+  }
+  size_t current_index = 0;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    if (i == symtab_section_index || i == link_section_index) {
+      continue;
+    }
+    struct LibtwelfSection *original_section = &twelf->section_table[i];
+    struct LibtwelfSection *updated_section = &new_section_table[current_index];
+    *updated_section = *original_section;
+
+    Elf64_Word new_sh_link = updated_section->internal->sh_link;
+    if (updated_section->internal->sh_link == symtab_section_index || updated_section->internal->sh_link == link_section_index) {
+      new_sh_link = 0;
+    }
+    else {
+      if (updated_section->internal->sh_link >= symtab_section_index) {
+        new_sh_link--;
+      }
+      if (symtab_section_index != link_section_index && updated_section->internal->sh_link >= link_section_index) {  // edge case: symtab links itself
+        new_sh_link--;
+      }
+    }
+    updated_section->internal->sh_link = new_sh_link;
+    updated_section->link = &new_section_table[new_sh_link];
+    current_index++;
+  }
+
+  // remove original section_table
+  free(symtab_section->internal->section_data);
+  free(symtab_section->internal);
+  if (symtab_section != link_section) { // edge case: symtab links itself
+    free(link_section->internal->section_data);
+    free(link_section->internal);
+  }
+  free(twelf->section_table);
+
+  twelf->section_table = new_section_table;
+  twelf->number_of_sections = current_index;
+  return SUCCESS;
 }
 
 int libtwelf_removeAllSections(struct LibtwelfFile *twelf)
