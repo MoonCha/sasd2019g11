@@ -329,49 +329,30 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   return return_code;
 
   fail:
-  if (twelf_file != NULL) {
-    free(twelf_file);
-  }
-  if (twelf_file_internal != NULL) {
-    free(twelf_file_internal);
-  }
-  if (file_name != NULL)  {
-    free(file_name);
-  }
+  free(twelf_file);
+  free(twelf_file_internal);
+  free(file_name);
   if (section_table != NULL) {
     for (size_t i = 0; i < ehdr->e_shnum; ++i) {
       struct LibtwelfSection *twelf_section = &section_table[i];
       if (twelf_section->internal != NULL) {
-        if (twelf_section->internal->section_data != NULL) {
-          free(twelf_section->internal->section_data);
-        }
-        free(twelf_section->internal);
+        free(twelf_section->internal->section_data);
       }
+      free(twelf_section->internal);
     }
-    free(section_table);
   }
-  if (pt_load_segment_boundary_table != NULL) {
-    free(pt_load_segment_boundary_table);
-  }
+  free(section_table);
+  free(pt_load_segment_boundary_table);
   if (segment_table != NULL) {
     for (size_t i = 0; i < ehdr->e_phnum; ++i) {
       struct LibtwelfSegment *twelf_segment = &segment_table[i];
-      if (twelf_segment->internal != NULL) {
-        free(twelf_segment->internal);
-      }
+      free(twelf_segment->internal);
     }
-    free(segment_table);
   }
-  if (file_data != NULL) {
-    free(file_data);
-  }
+  free(segment_table);
+  free(file_data);
   if (file != NULL) {
     fclose(file);
-  }
-  if (return_code == SUCCESS) {
-    log_warn("Fail with SUCCESS");
-  } else {
-    log_info("Fail: %d", return_code);
   }
   return return_code;
 }
@@ -598,12 +579,8 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
   return return_value;
 
   fail:
-  if (new_section_data != NULL) {
-    free(new_section_data);
-  }
-  if (name_length_array != NULL) {
-    free(name_length_array);
-  }
+  free(new_section_data);
+  free(name_length_array);
   return return_value;
 }
 
@@ -882,21 +859,14 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   }
 
   // clean resources
-  if (shdr_table != NULL) {
-    free(shdr_table);
-  }
-  if (phdr_table != NULL) {
-    free(phdr_table);
-  }
+  free(shdr_table);
+  free(phdr_table);
   fclose(outfile);
   return return_value;
+
   fail:
-  if (shdr_table != NULL) {
-    free(shdr_table);
-  }
-  if (phdr_table != NULL) {
-    free(phdr_table);
-  }
+  free(shdr_table);
+  free(phdr_table);
   if (outfile != NULL) {
     fclose(outfile);
   }
