@@ -572,16 +572,9 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
   current_offset += new_name_length;
 
   // update shstrtab section
-  // free(shstrtab_twelf_section->internal->section_data);
-  // shstrtab_twelf_section->internal->section_data = new_section_data;
-  // shstrtab_twelf_section->size = total_name_size;
-  // TODO: choose above or beneath after test
-  return_value = libtwelf_setSectionData(twelf, shstrtab_twelf_section, new_section_data, total_name_size);
-  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
-    struct LibtwelfSection *target_section = &twelf->section_table[i];
-    target_section->name = shstrtab_twelf_section->internal->section_data + target_section->internal->sh_name;
-  }
-  free(new_section_data);
+  free(shstrtab_twelf_section->internal->section_data);
+  shstrtab_twelf_section->internal->section_data = new_section_data;
+  shstrtab_twelf_section->size = total_name_size;
 
   free(name_length_array);
   return return_value;
