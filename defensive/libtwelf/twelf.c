@@ -919,9 +919,6 @@ int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSec
 
 int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_Addr *st_value)
 {
-  (void) twelf;
-  (void) name;
-  (void) st_value;
   bool symtab_found = false;
   const char *symtab_section_data;
   const char *strtab_section_data;
@@ -933,6 +930,10 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     if (strcmp(section->name, ".symtab") == 0) {
       entsize = section->internal->sh_entsize;
       libtwelf_getSectionData(twelf, section, &symtab_section_data, &symtab_section_size);
+      // TODO: remove or retain after test
+      if (section->link->type == SHT_NULL) {
+        return ERR_ELF_FORMAT;
+      }
       libtwelf_getSectionData(twelf, section->link, &strtab_section_data, &strtab_section_size);
       symtab_found = true;
       break;
