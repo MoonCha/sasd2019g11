@@ -12,6 +12,7 @@ struct LibtwelfFileInternal
 {
   size_t file_size;
   char *file_data; // represents whole file only on libtwelf_open, else only represents segment data
+  Elf64_Half e_shstrndx;
 };
 
 

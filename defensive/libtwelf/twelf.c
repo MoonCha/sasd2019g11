@@ -305,6 +305,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   }
   twelf_file_internal->file_size = file_size;
   twelf_file_internal->file_data = file_data;
+  twelf_file_internal->e_shstrndx = ehdr->e_shstrndx;
 
   // assemble LibtwelfFile and update result
   twelf_file = (struct LibtwelfFile *)malloc(sizeof(struct LibtwelfFile));
@@ -532,10 +533,78 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
 
 int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *section, const char *name_arg)
 {
-  (void) twelf;
-  (void) section;
-  (void) name_arg;
-  return ERR_NOT_IMPLEMENTED;
+  int return_value = SUCCESS;
+  // need resource management
+  char *new_section_data = NULL;
+  size_t *name_length_array = NULL;
+
+  // TODO: implementation assumes that shstrtab section is not involved in PT_LOAD segment (else vadliation & write back to segment needed)
+  struct LibtwelfSection *shstrtab_twelf_section = &twelf->section_table[twelf->internal->e_shstrndx];
+  size_t new_name_length = strlen(name_arg) + 1;
+
+  // reconstruct shstrtab
+  name_length_array = (size_t *)calloc(sizeof(size_t), twelf->number_of_sections > 0 ? twelf->number_of_sections : 1); // 1 for preventing zero-size allocation
+  if (name_length_array == NULL) {
+    log_info("calloc error");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  size_t total_name_size = 0;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *target_section = &twelf->section_table[i];
+    if (target_section == section) { // TODO: pointer comparison might not be safe? compare index?
+      continue;
+    }
+    uint64_t target_name_limit = shstrtab_twelf_section->size - target_section->internal->sh_name;  // overflow checked by open
+    size_t target_section_name_length = strnlen(target_section->name, target_name_limit) + 1; // handle the case when shstrtab does not have terminator on end of string
+    total_name_size += target_section_name_length;
+    name_length_array[i] = target_section_name_length;
+  }
+  total_name_size += new_name_length;
+
+  new_section_data = (char *)malloc(total_name_size);
+  if (new_section_data == NULL) {
+    log_info("malloc error");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  log_info("new_section_data: %p ~ %p", new_section_data, new_section_data + total_name_size);
+  size_t current_offset = 0;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *target_section = &twelf->section_table[i];
+    if (target_section == section) { // TODO: pointer comparison might not be safe? compare index?
+      continue;
+    }
+    char *current_position = (char *)((uintptr_t)new_section_data + current_offset);
+    memcpy(current_position, target_section->name, name_length_array[i]);
+    log_info("name write(index: %lu): %p ~ %p", i, current_position, current_position + name_length_array[i]);
+    target_section->internal->sh_name = current_offset;
+    target_section->name = current_position;
+    current_offset += name_length_array[i];
+  }
+  char *current_position = (char *)((uintptr_t)new_section_data + current_offset);
+  memcpy(current_position, name_arg, new_name_length);
+  log_info("name write(argument): %p ~ %p", current_position, current_position + new_name_length);
+  section->internal->sh_name = current_offset;
+  section->name = current_position;
+  current_offset += new_name_length;
+
+  // update shstrtab section
+  free(shstrtab_twelf_section->internal->section_data);
+  shstrtab_twelf_section->internal->section_data = new_section_data;
+  shstrtab_twelf_section->size = total_name_size;
+
+  free(name_length_array);
+  return return_value;
+
+  fail:
+  if (new_section_data != NULL) {
+    free(new_section_data);
+  }
+  if (name_length_array != NULL) {
+    free(name_length_array);
+  }
+  return return_value;
 }
 
 
@@ -829,10 +898,6 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
 int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSection *section, struct LibtwelfSegment **result)
 {
-  // TODO: restore ?
-  // if ((section->flags & SHF_ALLOC) != SHF_ALLOC) {
-  //   return ERR_NOT_FOUND;
-  // }
   uint64_t section_start = section->address;
   uint64_t section_end = section->address + section->size; // overflow checked by open
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
