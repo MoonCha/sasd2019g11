@@ -479,6 +479,36 @@ START_TEST (libtwelf_removeAllSections_basic)
 }
 END_TEST
 
+START_TEST (libtwelf_removeAllSections_simple_with_write)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_removeAllSections(twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 0);
+
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_removeAllSections_simple_with_write_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_removeAllSections_simple_with_write_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 0);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 START_TEST (libtwelf_addLoadSegment_basic)
 {
   struct LibtwelfFile *twelf;
@@ -562,6 +592,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_setSectionData_basic_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_basic);
   ADD_TESTCASE(libtwelf_removeAllSections_basic);
+  ADD_TESTCASE(libtwelf_removeAllSections_simple_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
