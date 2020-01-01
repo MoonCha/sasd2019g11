@@ -619,8 +619,13 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
 
 int libtwelf_removeAllSections(struct LibtwelfFile *twelf)
 {
-  (void) twelf;
-  return ERR_NOT_IMPLEMENTED;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    free(section->internal->section_data);
+    free(section->internal);
+  }
+  twelf->number_of_sections = 0;
+  return SUCCESS;
 }
 
 
