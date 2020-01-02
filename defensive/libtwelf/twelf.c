@@ -612,8 +612,6 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
   return return_value;
 }
 
-
-
 int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
 {
   // keep in mind to adjust the sh_link values (and the link pointers) for all
@@ -627,7 +625,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   // validation
   for (size_t i = 1; i < twelf->number_of_sections; ++i) { // start from 1 because 0 is NULL section
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0) {
+    if (section->type == SHT_SYMTAB) {
       symtab_section_index = i;
       link_section_index = section->internal->sh_link;
       if (link_section_index == 0 || link_section_index >= twelf->number_of_sections) {
@@ -691,6 +689,9 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
 
   twelf->section_table = new_section_table;
   twelf->number_of_sections = current_index;
+
+
+
   return SUCCESS;
 }
 
@@ -1150,7 +1151,7 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   Elf64_Xword entsize = 0;
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0 && section->type == SHT_SYMTAB) {
+    if (section->type == SHT_SYMTAB) {
       entsize = section->internal->sh_entsize;
       libtwelf_getSectionData(twelf, section, &symtab_section_data, &symtab_section_size);
       if (symtab_section_data == NULL) {
@@ -1209,7 +1210,7 @@ int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* secti
   Elf64_Xword entsize = 0;
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0 && section->type == SHT_SYMTAB) {
+    if (section->type == SHT_SYMTAB) {
       entsize = section->internal->sh_entsize;
       symtab_section = section;
       if (section->link->type != SHT_STRTAB) {
