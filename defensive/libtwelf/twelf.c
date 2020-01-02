@@ -428,7 +428,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
     struct LibtwelfSection *section = &twelf->section_table[i];
     uint64_t section_start = section->address;
     uint64_t section_end = section->address + section->size;
-    if (segment->vaddr <= section_start && section_end <= segment->vaddr + segment->memsize) {
+    if (is_overlap(section_start, section_end, segment->vaddr, segment->vaddr + segment->memsize)) {
       return ERR_INVALID_ARG;
     }
   }
@@ -872,19 +872,19 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           if (i == j) {
             continue;
           }
-          struct LibtwelfSegment *target_twelf_segment = &twelf->segment_table[j];
-          if (target_twelf_segment->type != PT_LOAD) {
+          struct LibtwelfSegment *compare_target_twelf_segment = &twelf->segment_table[j];
+          if (compare_target_twelf_segment->type != PT_LOAD) {
             continue;
           }
-          if (is_overlap(segment_offset_table[i], segment_offset_table[i] + twelf_segment->filesize, segment_offset_table[j], segment_offset_table[j] + target_twelf_segment->filesize)) {
+          if (is_overlap(segment_offset_table[i], segment_offset_table[i] + twelf_segment->filesize, segment_offset_table[j], segment_offset_table[j] + compare_target_twelf_segment->filesize)) {
             log_info("PT_LOAD segments on different virtual addresses overlap on file");
             for (size_t k = 0; k < twelf->number_of_segments; ++k) {
-              struct LibtwelfSegment *target_twelf_segment = &twelf->segment_table[k];
-              if (is_overlap(twelf_segment->vaddr, twelf_segment->vaddr + twelf_segment->filesize, target_twelf_segment->vaddr, target_twelf_segment->vaddr + target_twelf_segment->filesize)) {
+              struct LibtwelfSegment *adjust_target_twelf_segment = &twelf->segment_table[k];
+              if (is_overlap(compare_target_twelf_segment->vaddr, compare_target_twelf_segment->vaddr + compare_target_twelf_segment->filesize, adjust_target_twelf_segment->vaddr, adjust_target_twelf_segment->vaddr + adjust_target_twelf_segment->filesize)) {
                 Elf64_Off new_offset;
                 Elf64_Off new_segment_end_on_file;
                 if (__builtin_add_overflow(segment_offset_table[k], page_size, &new_offset)
-                 || __builtin_add_overflow(new_offset, target_twelf_segment->filesize, &new_segment_end_on_file)) {
+                 || __builtin_add_overflow(new_offset, adjust_target_twelf_segment->filesize, &new_segment_end_on_file)) {
                   log_info("reallocated segment offset overflows Elf64_Off");
                   return_value = ERR_NOMEM;
                   goto fail;
@@ -893,6 +893,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
               }
             }
             overlapped = true;
+            break;
           }
         }
       } while(overlapped);
