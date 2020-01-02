@@ -556,6 +556,66 @@ START_TEST (libtwelf_addLoadSegment_basic)
   ck_assert_int_eq(twelf->number_of_segments, 3);
   ck_assert_int_eq(twelf->number_of_sections, 3);
 
+  const char *data = NULL;
+  size_t filesz = 0;
+  size_t memsz = 0;
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[2], &data, &filesz, &memsz) ;
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, sizeof(segment));
+  ck_assert_int_eq(memsz, sizeof(segment));
+  ck_assert(0 == memcmp(data, segment, sizeof(segment)));
+
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_addLoadSegment_basic_with_write)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  char segment[0x1234];
+  memset(segment, 0x90, sizeof(segment));
+  ret = libtwelf_addLoadSegment(twelf, segment, sizeof(segment), PF_W | PF_R | PF_X, 0xdeadbeef);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 3);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  const char *data = NULL;
+  size_t filesz = 0;
+  size_t memsz = 0;
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[2], &data, &filesz, &memsz) ;
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, sizeof(segment));
+  ck_assert_int_eq(memsz, sizeof(segment));
+  ck_assert(0 == memcmp(data, segment, sizeof(segment)));
+
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_addLoadSegment_basic_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_addLoadSegment_basic_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 3);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[2], &data, &filesz, &memsz) ;
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, sizeof(segment));
+  ck_assert_int_eq(memsz, sizeof(segment));
+  ck_assert(0 == memcmp(data, segment, sizeof(segment)));
+
+  ck_assert_int_eq(ret, SUCCESS);
+
   libtwelf_close(twelf);
 }
 END_TEST
@@ -625,6 +685,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_removeAllSections_basic);
   ADD_TESTCASE(libtwelf_removeAllSections_simple_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic);
+  ADD_TESTCASE(libtwelf_addLoadSegment_basic_with_write);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
 

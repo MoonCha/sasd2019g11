@@ -708,68 +708,109 @@ int libtwelf_removeAllSections(struct LibtwelfFile *twelf)
 
 int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, uint32_t flags, Elf64_Addr vaddr)
 {
-  (void) twelf;
-  (void) data;
-  (void) len;
-  (void) flags;
-  (void) vaddr;
-  return ERR_NOT_IMPLEMENTED;
-  // // validation
-  // uint64_t new_segment_start = vaddr;
-  // uint64_t new_segment_end;
-  // if (__builtin_add_overflow(vaddr, len, &new_segment_end)) {
-  //   log_info("addLoadSegment: vaddr + len overflows");
-  //   return ERR_INVALID_ARG;
-  // }
-  // log_info("new_segment range: 0x%lx ~ 0x%lx", new_segment_start, new_segment_end);
-  // if (flags & ~(PF_R | PF_W | PF_X)) {
-  //   log_info("addLoadSegment: flags involves invalid flag: %u", flags);
-  //   return ERR_INVALID_ARG;
-  // }
-  // for (size_t i = 0; i < twelf->number_of_segments; ++i) {
-  //   struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
-  //   uint64_t target_sgement_start = target_segment->vaddr;
-  //   uint64_t target_segment_end = target_segment->vaddr + target_segment->memsize;
-  //   log_info("target_segment range: 0x%lx ~ 0x%lx", target_sgement_start, target_segment_end);
-  //   if (is_overlap(new_segment_start, new_segment_end, target_sgement_start, target_segment_end)) {
-  //     log_info("addLoadSegment: new segment overlaps with another original segment");
-  //     return ERR_INVALID_ARG;
-  //   }
-  // }
+  int return_value = SUCCESS;
 
-  // long page_size = sysconf(_SC_PAGE_SIZE);
-  // size_t new_segment_offset = vaddr % page_size;
-  // for (size_t i = 0; i < twelf->number_of_segments; ++i) {
-  //   // struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
-  //   continue;
-  // }
+  // validation
+  uint64_t new_segment_start = vaddr;
+  uint64_t new_segment_end;
+  if (__builtin_add_overflow(vaddr, len, &new_segment_end)) {
+    log_info("addLoadSegment: vaddr + len overflows");
+    return ERR_INVALID_ARG;
+  }
+  log_info("new_segment range: 0x%lx ~ 0x%lx", new_segment_start, new_segment_end);
+  if (flags & ~(PF_R | PF_W | PF_X)) {
+    log_info("addLoadSegment: flags involves invalid flag: %u", flags);
+    return ERR_INVALID_ARG;
+  }
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
+    uint64_t target_sgement_start = target_segment->vaddr;
+    uint64_t target_segment_end = target_segment->vaddr + target_segment->memsize;
+    log_info("target_segment range: 0x%lx ~ 0x%lx", target_sgement_start, target_segment_end);
+    if (is_overlap(new_segment_start, new_segment_end, target_sgement_start, target_segment_end)) {
+      log_info("addLoadSegment: new segment overlaps with another original segment");
+      return ERR_INVALID_ARG;
+    }
+  }
 
-  // // need resource management
-  // struct LibtwelfSegment *new_segment = NULL;
-  // struct new_segment_table *new_segment_table = NULL;
+  // need resource management
+  struct LibtwelfSegment *new_segment_table = NULL;
 
-  // // construct new segment
-  // new_segment = (struct LibtwelfSegment *)calloc(sizeof(struct LibtwelfSegment), 1);
-  // if (new_segment == NULL) {
-  //   log_info("calloc error");
-  //   return ERR_NOMEM;
-  // }
-  // new_segment->internal = (struct LibtwelfSegmentInternal *)calloc(sizeof(struct LibtwelfSegmentInternal), 1);
-  // if (new_segment->internal == NULL) {
-  //   log_info("calloc error");
-  //   free(new_segment);
-  //   return ERR_NOMEM;
-  // }
-  // new_segment->internal->p_align = 1;
-  // new_segment->internal->p_paddr = vaddr;
-  // new_segment->readable = (flags & PF_R) == PF_R;
-  // new_segment->writeable = (flags & PF_W) == PF_W;
-  // new_segment->executable = (flags & PF_X) == PF_X;
-  // new_segment->filesize = len;
-  // new_segment->memsize = len;
-  // new_segment->type = PT_LOAD;
+  // construct new segment
+  struct LibtwelfSegment new_segment = {0,};
+  new_segment.internal = (struct LibtwelfSegmentInternal *)calloc(sizeof(struct LibtwelfSegmentInternal), 1);
+  if (new_segment.internal == NULL) {
+    log_info("calloc error");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  new_segment.internal->segment_data = (char *)malloc(len);
+  if (new_segment.internal->segment_data == NULL) {
+    log_info("malloc error");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  memcpy(new_segment.internal->segment_data, data, len);
+  new_segment.internal->p_align = 1;
+  new_segment.internal->p_paddr = vaddr;
+  new_segment.vaddr = vaddr;
+  new_segment.readable = (flags & PF_R) == PF_R;
+  new_segment.writeable = (flags & PF_W) == PF_W;
+  new_segment.executable = (flags & PF_X) == PF_X;
+  new_segment.filesize = len;
+  new_segment.memsize = len;
+  new_segment.type = PT_LOAD;
 
-  // return SUCCESS;
+  // reconstruct segment table
+  size_t new_segment_count;
+  if (__builtin_add_overflow(twelf->number_of_segments, 1, &new_segment_count)) {
+    // unlikely case because number_of_segments is originated from Elf64_Half, which is uint16_t
+    // even repeating addLoadSegment will not reach overflow, because it would become out of memory before it reach.
+    log_info("UNLIKELY CASE: twelf->number_of_sements + 1 overflows");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  new_segment_table = (struct LibtwelfSegment *)calloc(sizeof(struct LibtwelfSegment), new_segment_count);
+  if (new_segment_table == NULL) {
+    log_info("calloc error");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
+  size_t current_index = 0;
+  bool inserted = false;
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
+    if (!inserted && target_segment->vaddr > vaddr) {
+      new_segment.internal->index = current_index;
+      new_segment_table[current_index] = new_segment;
+      current_index++;
+      inserted = true;
+    }
+    target_segment->internal->index = current_index;
+    new_segment_table[current_index] = *target_segment;
+    current_index++;
+  }
+  if (!inserted) {
+    new_segment.internal->index = current_index;
+    new_segment_table[current_index] = new_segment;
+    current_index++;
+    inserted = true;
+  }
+
+  // replace segment table
+  free(twelf->segment_table);
+  twelf->segment_table = new_segment_table;  
+  twelf->number_of_segments = new_segment_count;
+
+  return return_value;
+
+  fail:
+  if (new_segment.internal != NULL) {
+    free(new_segment.internal->segment_data);
+  }
+  free(new_segment.internal);
+  free(new_segment_table);
+  return return_value;
 }
 
 int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
