@@ -799,7 +799,7 @@ int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, 
 
   // replace segment table
   free(twelf->segment_table);
-  twelf->segment_table = new_segment_table;  
+  twelf->segment_table = new_segment_table;
   twelf->number_of_segments = new_segment_count;
 
   return return_value;
@@ -1150,8 +1150,8 @@ int libtwelf_getAssociatedSegment(struct LibtwelfFile *twelf, struct LibtwelfSec
 int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_Addr *st_value)
 {
   bool symtab_found = false;
-  const char *symtab_section_data;
-  const char *strtab_section_data;
+  const char *symtab_section_data = NULL;
+  const char *strtab_section_data = NULL;
   size_t symtab_section_size = 0;
   size_t strtab_section_size = 0;
   Elf64_Xword entsize = 0;
@@ -1160,11 +1160,17 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     if (strcmp(section->name, ".symtab") == 0) {
       entsize = section->internal->sh_entsize;
       libtwelf_getSectionData(twelf, section, &symtab_section_data, &symtab_section_size);
-      // TODO: remove or retain after test
+      if (symtab_section_data == NULL) {
+        return ERR_ELF_FORMAT;
+      }
+      // remove or retain after test --> No effect on score
       if (section->link->type == SHT_NULL) {
         return ERR_ELF_FORMAT;
       }
       libtwelf_getSectionData(twelf, section->link, &strtab_section_data, &strtab_section_size);
+      if (strtab_section_data == NULL) {
+        return ERR_ELF_FORMAT;
+      }
       symtab_found = true;
       break;
     }
