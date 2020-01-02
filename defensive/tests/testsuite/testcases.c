@@ -731,6 +731,24 @@ START_TEST (libtwelf_addSymbol_basic)
 }
 END_TEST
 
+START_TEST (libtwelf_addSymbol_basic_with_write)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_write(twelf, "../test_elfs/libtwelf_addSymbol_basic_with_write_output.elf");
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 int main(int argc, char** argv)
 {
   Suite* suite = suite_create("Test suite");
@@ -766,6 +784,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_addLoadSegment_offset_overlap);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
+  ADD_TESTCASE(libtwelf_addSymbol_basic_with_write);
 
   suite_add_tcase(suite, tcase);
 
