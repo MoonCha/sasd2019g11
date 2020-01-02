@@ -1192,11 +1192,6 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
 
 int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* section, const char *name, unsigned char type, Elf64_Addr st_value)
 {
-  (void) twelf;
-  (void) section;
-  (void) name;
-  (void) type;
-  (void) st_value;
 
   // TODO: implementation assumes that shstrtab section is not involved in PT_LOAD segment (else vadliation & write back to segment needed)
   // validation
@@ -1261,7 +1256,7 @@ int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* secti
   new_symbol->st_name = strtab_section->size;
   new_symbol->st_info = ELF32_ST_INFO(STB_GLOBAL, type);
   new_symbol->st_other = STV_DEFAULT;
-  new_symbol->st_shndx = 0; // TODO: check right?
+  new_symbol->st_shndx = section->internal->index;
   new_symbol->st_value = st_value;
   new_symbol->st_size = 0;
 
