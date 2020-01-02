@@ -365,6 +365,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   if (file != NULL) {
     fclose(file);
   }
+  log_info("libtwelf_open: Fail");
   return return_code;
 }
 
@@ -942,39 +943,39 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     }
     // unusual case: section with SHF_ALLOC does not have associated segment
     size_t non_alloc_section_data_start = segment_data_end;
-    // for (size_t i = 0; i < twelf->number_of_sections; ++i) {
-    //   struct LibtwelfSection *twelf_section = &twelf->section_table[i];
-    //   struct LibtwelfSegment *associated_twelf_segment;
-    //   if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC
-    //    && libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
-    //    && twelf_section->type != SHT_NULL
-    //   ) {
-    //     log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
-    //     // TODO: implemented in dumb way --> writing on the next page of segment data / can check & write on the same page if not overlapped
-    //     uint64_t section_data_offset;
-    //     uint64_t section_data_end;
-    //     if (__builtin_add_overflow(non_alloc_section_data_start, (page_size - (non_alloc_section_data_start % page_size)) % page_size, &section_data_offset)
-    //      || __builtin_add_overflow(section_data_offset, twelf_section->internal->sh_offset, &segment_data_end)
-    //      || __builtin_add_overflow(section_data_offset, twelf_section->size, &section_data_end)
-    //     ) {
-    //       log_info("reallocated section offset overflows uint64_t");
-    //       return_value = ERR_IO;
-    //       goto fail;
-    //     }
-    //     non_alloc_section_data_start = section_data_end > non_alloc_section_data_start ? section_data_end : non_alloc_section_data_start;
-    //     twelf_section->internal->sh_offset = section_data_offset;
-    //     if (fseek(outfile, section_data_offset, SEEK_SET)) {
-    //       log_info("fseek fail");
-    //       return_value = ERR_IO;
-    //       goto fail;
-    //     }
-    //     if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
-    //       log_info("fwrite error");
-    //       return_value = ERR_IO;
-    //       goto fail;
-    //     }
-    //   }
-    // }
+    for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+      struct LibtwelfSection *twelf_section = &twelf->section_table[i];
+      struct LibtwelfSegment *associated_twelf_segment;
+      if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC
+       && libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == ERR_NOT_FOUND
+       && twelf_section->type != SHT_NULL
+      ) {
+        log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
+        // TODO: implemented in dumb way --> writing on the next page of segment data / can check & write on the same page if not overlapped
+        uint64_t section_data_offset;
+        uint64_t section_data_end;
+        if (__builtin_add_overflow(non_alloc_section_data_start, (page_size - (non_alloc_section_data_start % page_size)) % page_size, &section_data_offset)
+         || __builtin_add_overflow(section_data_offset, twelf_section->internal->sh_offset, &segment_data_end)
+         || __builtin_add_overflow(section_data_offset, twelf_section->size, &section_data_end)
+        ) {
+          log_info("reallocated section offset overflows uint64_t");
+          return_value = ERR_IO;
+          goto fail;
+        }
+        non_alloc_section_data_start = section_data_end > non_alloc_section_data_start ? section_data_end : non_alloc_section_data_start;
+        twelf_section->internal->sh_offset = section_data_offset;
+        if (fseek(outfile, section_data_offset, SEEK_SET)) {
+          log_info("fseek fail");
+          return_value = ERR_IO;
+          goto fail;
+        }
+        if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
+          log_info("fwrite error");
+          return_value = ERR_IO;
+          goto fail;
+        }
+      }
+    }
     if (fseek(outfile, non_alloc_section_data_start, SEEK_SET)) {
       log_info("fseek fail");
       return_value = ERR_IO;
