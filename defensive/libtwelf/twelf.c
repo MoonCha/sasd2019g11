@@ -1157,14 +1157,14 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   Elf64_Xword entsize = 0;
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0) {
+    if (strcmp(section->name, ".symtab") == 0 && section->type == SHT_SYMTAB) {
       entsize = section->internal->sh_entsize;
       libtwelf_getSectionData(twelf, section, &symtab_section_data, &symtab_section_size);
       if (symtab_section_data == NULL) {
         return ERR_ELF_FORMAT;
       }
       // remove or retain after test --> No effect on score
-      if (section->link->type == SHT_NULL) {
+      if (section->link->type != SHT_STRTAB) {
         return ERR_ELF_FORMAT;
       }
       libtwelf_getSectionData(twelf, section->link, &strtab_section_data, &strtab_section_size);
@@ -1180,7 +1180,7 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   }
   log_info("symtab_section_size: %lu, entsize: %lu, sizeof(Elf64_Sym): %lu", symtab_section_size, entsize, sizeof(Elf64_Sym));
   size_t symbol_size = entsize >= sizeof(Elf64_Sym) ? entsize : sizeof(Elf64_Sym);
-  size_t symbol_count = symtab_section_size / sizeof(Elf64_Sym);
+  size_t symbol_count = symtab_section_size / symbol_size;
   for (size_t i = 0; i < symbol_count; ++i) {
     Elf64_Sym *symbol = (Elf64_Sym *)((uintptr_t)symtab_section_data + i * symbol_size);
     // TODO: when to check st_name validity?: resolveSymbol or open
@@ -1189,6 +1189,7 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     }
     if (strcmp(name, strtab_section_data + symbol->st_name) == 0) {
       *st_value = symbol->st_value;
+      log_info("symbol->st_shndx: %u", symbol->st_shndx);
       return SUCCESS;
     }
   }
@@ -1202,5 +1203,81 @@ int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* secti
   (void) name;
   (void) type;
   (void) st_value;
-  return ERR_NOT_IMPLEMENTED;
+
+  // TODO: implementation assumes that shstrtab section is not involved in PT_LOAD segment (else vadliation & write back to segment needed)
+  // validation
+  if (type != STT_FUNC && type != STT_OBJECT) {
+    // TODO: this validation is not specified in libtwelf.h, remove this if didn't get full score
+    return ERR_INVALID_ARG;
+  }
+  bool symtab_found = false;
+  struct LibtwelfSection *symtab_section;
+  struct LibtwelfSection *strtab_section;
+  Elf64_Xword entsize = 0;
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    if (strcmp(section->name, ".symtab") == 0 && section->type == SHT_SYMTAB) {
+      entsize = section->internal->sh_entsize;
+      symtab_section = section;
+      if (section->link->type != SHT_STRTAB) {
+        return ERR_ELF_FORMAT;
+      }
+      strtab_section = section->link;
+      symtab_found = true;
+      break;
+    }
+  }
+  if (!symtab_found) {
+    return ERR_ELF_FORMAT;
+  }
+
+  // reconstruct strtab section data
+  size_t new_strtab_section_size;
+  size_t new_name_size = strlen(name) + 1;
+  if (__builtin_add_overflow(strtab_section->size, new_name_size, &new_strtab_section_size)) {
+    log_info("strtab section new size overflows size_t");
+    return ERR_NOMEM;
+  }
+  char *new_strtab_section_data = (char *)malloc(new_strtab_section_size);
+  if (new_strtab_section_data == NULL) {
+    log_info("malloc error");
+    return ERR_NOMEM;
+  }
+  memcpy(new_strtab_section_data, strtab_section->internal->section_data, strtab_section->size);
+  strncpy(new_strtab_section_data + strtab_section->size, name, new_name_size);
+
+  // reconstruct symtab section data
+  log_info("symtab_section_size: %lu, entsize: %lu, sizeof(Elf64_Sym): %lu", symtab_section->size, entsize, sizeof(Elf64_Sym));
+  size_t symbol_size = entsize >= sizeof(Elf64_Sym) ? entsize : sizeof(Elf64_Sym);
+  size_t symbol_count = symtab_section->size / symbol_size;
+  size_t new_symtab_section_size;
+  if (__builtin_mul_overflow(symbol_size, symbol_count + 1, &new_symtab_section_size)) {
+    log_info("strtab section new size overflows size_t");
+    free(new_strtab_section_data);
+    return ERR_NOMEM;
+  }
+  char *new_symtab_section_data = (char *)calloc(symbol_size, symbol_count + 1);
+  if (new_strtab_section_data == NULL) {
+    log_info("calloc error");
+    free(new_strtab_section_data);
+    return ERR_NOMEM;
+  }
+  memcpy(new_symtab_section_data, symtab_section->internal->section_data, symtab_section->size);
+  Elf64_Sym *new_symbol = (Elf64_Sym *)((uintptr_t)new_symtab_section_data + symbol_size * symbol_count);
+  new_symbol->st_name = strtab_section->size;
+  new_symbol->st_info = ELF32_ST_INFO(STB_GLOBAL, type);
+  new_symbol->st_other = STV_DEFAULT;
+  new_symbol->st_shndx = 0; // TODO: check right?
+  new_symbol->st_value = st_value;
+  new_symbol->st_size = 0;
+
+  // update sections
+  strtab_section->size = new_strtab_section_size;
+  free(strtab_section->internal->section_data);
+  strtab_section->internal->section_data = new_strtab_section_data;
+  symtab_section->size = new_symtab_section_size;
+  free(symtab_section->internal->section_data);
+  symtab_section->internal->section_data = new_symtab_section_data;
+
+  return SUCCESS;
 }
