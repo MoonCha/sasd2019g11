@@ -206,9 +206,9 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     twelf_segment->vaddr = phdr->p_vaddr;
     twelf_segment->filesize = phdr->p_filesz;
     twelf_segment->memsize = phdr->p_memsz;
-    twelf_segment->readable = phdr->p_flags & PF_R;
-    twelf_segment->writeable = phdr->p_flags & PF_W;
-    twelf_segment->executable = phdr->p_flags & PF_X;
+    twelf_segment->readable = (phdr->p_flags & PF_R) == PF_R;
+    twelf_segment->writeable = (phdr->p_flags & PF_W) == PF_W;
+    twelf_segment->executable = (phdr->p_flags & PF_X) == PF_X;
   }
 
   // create section table with validation
@@ -591,9 +591,6 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
 {
   // keep in mind to adjust the sh_link values (and the link pointers) for all
   // remaining sections as they may need to be updated
-  // need resource management
-  struct LibtwelfSection *new_section_table = NULL;
-
   bool symtab_found = false;
   size_t symtab_section_index;
   size_t link_section_index;
@@ -619,6 +616,9 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   if (!symtab_found) {
     return ERR_ELF_FORMAT;
   }
+
+  // need resource management
+  struct LibtwelfSection *new_section_table = NULL;
 
   // reconstruct section_table
   new_section_table = (struct LibtwelfSection *)calloc(sizeof(struct LibtwelfSection), twelf->number_of_sections);
