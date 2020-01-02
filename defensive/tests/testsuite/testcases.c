@@ -620,6 +620,83 @@ START_TEST (libtwelf_addLoadSegment_basic_with_write)
 }
 END_TEST
 
+START_TEST (libtwelf_addLoadSegment_offset_overlap)
+{
+  struct LibtwelfFile *twelf;
+  const char *data = NULL;
+  size_t filesz = 0;
+  size_t memsz = 0;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[0], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  char *segment_0_data = (char *)malloc(filesz);
+  ck_assert(segment_0_data != NULL);
+  memcpy(segment_0_data, data, filesz);
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[1], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  char *segment_1_data = (char *)malloc(filesz);
+  ck_assert(segment_1_data != NULL);
+  memcpy(segment_1_data, data, filesz);
+
+  char segment[0x1234];
+  memset(segment, 0x90, sizeof(segment));
+  ret = libtwelf_addLoadSegment(twelf, segment, sizeof(segment), PF_W | PF_R | PF_X, 0x00000000080480b0 + 0x1000);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 3);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[0], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(0 == memcmp(data, segment_0_data, filesz));
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[1], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(0 == memcmp(data, segment_1_data, filesz));
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[2], &data, &filesz, &memsz) ;
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, sizeof(segment));
+  ck_assert_int_eq(memsz, sizeof(segment));
+  ck_assert(0 == memcmp(data, segment, sizeof(segment)));
+
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_addLoadSegment_offset_overlap_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_addLoadSegment_offset_overlap_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 3);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[0], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(0 == memcmp(data, segment_0_data, filesz));
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[1], &data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(0 == memcmp(data, segment_1_data, filesz));
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[2], &data, &filesz, &memsz) ;
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, sizeof(segment));
+  ck_assert_int_eq(memsz, sizeof(segment));
+  ck_assert(0 == memcmp(data, segment, sizeof(segment)));
+
+  ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+
+  free(segment_0_data);
+  free(segment_1_data);
+}
+END_TEST
+
 START_TEST (libtwelf_resolveSymbol_basic)
 {
   struct LibtwelfFile *twelf;
@@ -686,6 +763,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_removeAllSections_simple_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic_with_write);
+  ADD_TESTCASE(libtwelf_addLoadSegment_offset_overlap);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
 
