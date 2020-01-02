@@ -743,7 +743,8 @@ START_TEST (libtwelf_addSymbol_basic_with_write)
   ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
   ck_assert_int_eq(ret, SUCCESS);
 
-  libtwelf_write(twelf, "../test_elfs/libtwelf_addSymbol_basic_with_write_output.elf");
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_addSymbol_basic_with_write_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
 
   libtwelf_close(twelf);
 }
