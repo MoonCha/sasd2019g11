@@ -629,7 +629,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   struct LibtwelfSection *link_section;
 
   // validation
-  for (size_t i = 1; i < twelf->number_of_sections; ++i) { // start from 1 because 0 is NULL section
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
     if (section->type == SHT_SYMTAB) {
       symtab_section_index = i;
@@ -678,13 +678,13 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
         new_sh_link--;
       }
     }
-    updated_section->internal->index = i;
+    updated_section->internal->index = current_index;
     updated_section->internal->sh_link = new_sh_link;
     updated_section->link = &new_section_table[new_sh_link];
     current_index++;
   }
 
-  // remove original section_table
+  // replace section table
   free(symtab_section->internal->section_data);
   free(symtab_section->internal);
   if (symtab_section != link_section) { // edge case: symtab links itself
@@ -692,11 +692,8 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
     free(link_section->internal);
   }
   free(twelf->section_table);
-
   twelf->section_table = new_section_table;
   twelf->number_of_sections = current_index;
-
-
 
   return SUCCESS;
 }
