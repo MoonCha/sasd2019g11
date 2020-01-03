@@ -11,155 +11,75 @@ START_TEST (libtwelf_open_fail)
 {
   struct LibtwelfFile *twelf = NULL;
   set_io_failcounter(1);
-  int ret = libtwelf_open("../test_elfs/empty.elf", &twelf);
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
   ck_assert_int_eq(ret, ERR_IO);
 
   set_alloc_failcounter(1);
-  ret = libtwelf_open("../test_elfs/empty.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
   ck_assert_int_eq(ret, ERR_NOMEM);
 }
 END_TEST
 
-START_TEST (libtwelf_open_invalid_elf_header1)
+START_TEST (libtwelf_open_invalid_elf_header)
 {
   struct LibtwelfFile *twelf = NULL;
   int ret = libtwelf_open("../test_elfs/invalid_elf_header1.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_elf_header2)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header2.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_elf_header2.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header3.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header4.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header5.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header6.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header7.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header8.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ret = libtwelf_open("../test_elfs/invalid_elf_header9.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
 }
 END_TEST
 
-START_TEST (libtwelf_open_invalid_elf_header3)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header3.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header4)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header4.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header5)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header5.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header6)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header6.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header7)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header7.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header8)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header8.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_elf_header9)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_elf_header9.elf", &twelf);
-  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_program_header1)
+START_TEST (libtwelf_open_invalid_program_header)
 {
   struct LibtwelfFile *twelf = NULL;
   int ret = libtwelf_open("../test_elfs/invalid_program_header1.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header2)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header2.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header2.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header3)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header3.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header3.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
-
-START_TEST (libtwelf_open_invalid_program_header4)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header4.elf", &twelf);
+  
+  ret = libtwelf_open("../test_elfs/invalid_program_header4.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header5)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header5.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header5.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header6)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header6.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header6.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header7)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header7.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header7.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header8)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header8.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header8.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
-}
-END_TEST
 
-START_TEST (libtwelf_open_invalid_program_header9)
-{
-  struct LibtwelfFile *twelf = NULL;
-  int ret = libtwelf_open("../test_elfs/invalid_program_header9.elf", &twelf);
+  ret = libtwelf_open("../test_elfs/invalid_program_header9.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
 }
 END_TEST
@@ -247,6 +167,34 @@ START_TEST (libtwelf_getAssociatedSegment_basic)
 
   ret = libtwelf_getAssociatedSegment(twelf, &twelf->section_table[2], &segment);
   ck_assert_int_eq(ret, ERR_NOT_FOUND);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_write_fail)
+{
+  struct LibtwelfFile *twelf = NULL;
+
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(twelf != NULL);
+
+  set_io_failcounter(1);
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_fail_output.elf");
+  ck_assert_int_eq(ret, ERR_IO);
+
+  set_alloc_failcounter(1);
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_fail_output.elf");
+  ck_assert_int_eq(ret, ERR_NOMEM);
+
+  set_alloc_failcounter(2);
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_fail_output.elf");
+  ck_assert_int_eq(ret, ERR_NOMEM);
+
+  set_alloc_failcounter(3);
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_fail_output.elf");
+  ck_assert_int_eq(ret, ERR_NOMEM);
 
   libtwelf_close(twelf);
 }
@@ -453,6 +401,41 @@ START_TEST (libtwelf_renameSection_basic_with_write)
   ck_assert_str_eq(twelf->section_table[0].name, "");
   ck_assert_str_eq(twelf->section_table[1].name, ".title");
   ck_assert_str_eq(twelf->section_table[2].name, ".shstrtab");
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_setSegmentData_fail)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  char data[3] = {0x07, 0x06, 0x05};
+
+  const char *orig_data;
+  size_t orig_filesz;
+  size_t orig_memsz;
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[1], &orig_data, &orig_filesz, &orig_memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  set_alloc_failcounter(1);
+  ret = libtwelf_setSegmentData(twelf, &twelf->segment_table[1], data, 3, 10);
+  ck_assert_int_eq(ret, ERR_NOMEM);
+
+  const char *out_data;
+  size_t filesz;
+  size_t memsz;
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[1], &out_data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, orig_filesz);
+  ck_assert_int_eq(memsz, orig_memsz);
+  ck_assert(0 == memcmp(out_data, orig_data, orig_filesz));
 
   libtwelf_close(twelf);
 }
@@ -969,29 +952,14 @@ int main(int argc, char** argv)
 
 
   ADD_TESTCASE(libtwelf_open_fail);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header1);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header2);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header3);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header4);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header5);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header6);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header7);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header8);
-  ADD_TESTCASE(libtwelf_open_invalid_elf_header9);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header1);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header2);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header3);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header4);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header5);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header6);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header7);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header8);
-  ADD_TESTCASE(libtwelf_open_invalid_program_header9);
+  ADD_TESTCASE(libtwelf_open_invalid_elf_header);
+  ADD_TESTCASE(libtwelf_open_invalid_program_header);
   ADD_TESTCASE(libtwelf_open_empty_elf);
   ADD_TESTCASE(libtwelf_open_filename);
   ADD_TESTCASE(libtwelf_open_segments_one);
   ADD_TESTCASE(libtwelf_open_section_name);
   ADD_TESTCASE(libtwelf_open_io);
+  ADD_TESTCASE(libtwelf_write_fail);
   ADD_TESTCASE(libtwelf_write_basic);
   ADD_TESTCASE(libtwelf_write_simple);
   ADD_TESTCASE(libtwelf_write_symtab);
@@ -1002,6 +970,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_getSegmentData_basic);
   ADD_TESTCASE(libtwelf_renameSection_basic);
   ADD_TESTCASE(libtwelf_renameSection_basic_with_write);
+  ADD_TESTCASE(libtwelf_setSegmentData_fail);
   ADD_TESTCASE(libtwelf_setSegmentData_basic);
   ADD_TESTCASE(libtwelf_setSegmentData_basic_with_write);
   ADD_TESTCASE(libtwelf_setSectionData_basic);
