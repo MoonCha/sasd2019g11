@@ -751,7 +751,7 @@ int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, 
     return_value = ERR_NOMEM;
     goto fail;
   }
-  new_segment.internal->segment_data = (char *)malloc(len);
+  new_segment.internal->segment_data = (char *)malloc(len + 1); // 1 for preventing zero-size allocation
   if (new_segment.internal->segment_data == NULL) {
     log_info("malloc error");
     return_value = ERR_NOMEM;
