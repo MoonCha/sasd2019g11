@@ -858,9 +858,12 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   }
 
   // reconstruct phdr table
-  if (fseek(outfile, sizeof(Elf64_Ehdr), SEEK_SET)) {
-    log_info("fseek error");
-    return_value = ERR_IO;
+  size_t phdr_table_end;
+  if (__builtin_mul_overflow(sizeof(Elf64_Phdr), twelf->number_of_segments, &phdr_table_end)
+   || __builtin_add_overflow(phdr_table_end, sizeof(Elf64_Ehdr), &phdr_table_end)
+  ) {
+    log_info("elf header + phdr table overflows size_t");
+    return_value = ERR_NOMEM;
     goto fail;
   }
   long page_size = sysconf(_SC_PAGE_SIZE);
@@ -877,13 +880,33 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       segment_offset_table[i] = twelf_segment->vaddr % page_size;
     }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+      if (segment_offset_table[i] < phdr_table_end) {
+        size_t phdr_table_page_count = phdr_table_end / page_size;
+        phdr_table_page_count += phdr_table_end % page_size > 0 ? 1 : 0;
+        size_t offset_adjust;
+        if (__builtin_mul_overflow(page_size, phdr_table_page_count, &offset_adjust)) {
+          log_info("phdr table spans all pages");
+          return_value = ERR_NOMEM;
+          goto fail;
+        }
+        for (size_t j = 0; j < twelf->number_of_segments; ++j) {
+          segment_offset_table[j] += offset_adjust;
+        }
+        break;
+      }
+    }
+
+    for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
       for (size_t j = i + 1; j < twelf->number_of_segments; ++j) {
         struct LibtwelfSegment *compare_target_twelf_segment = &twelf->segment_table[j];
+        if (is_overlap(twelf_segment->vaddr, twelf_segment->vaddr + twelf_segment->memsize, compare_target_twelf_segment->vaddr, compare_target_twelf_segment->vaddr + compare_target_twelf_segment->memsize)) {
+            size_t original_offset = segment_offset_table[j];
+            segment_offset_table[j] = segment_offset_table[i] + (compare_target_twelf_segment->vaddr - twelf_segment->vaddr); // overflow here leads to fseek fail
+            log_info("overlapping segment relocated: 0x%lx -> 0x%lx", original_offset, segment_offset_table[j]);
+            continue;
+        }
         while (is_overlap(segment_offset_table[i], segment_offset_table[i] + twelf_segment->filesize, segment_offset_table[j], segment_offset_table[j] + compare_target_twelf_segment->filesize)) {
-          if (is_overlap(twelf_segment->vaddr, twelf_segment->vaddr + twelf_segment->memsize, compare_target_twelf_segment->vaddr, compare_target_twelf_segment->vaddr + compare_target_twelf_segment->memsize)) {
-            break;
-          }
           log_info("PT_LOAD segments on different virtual addresses overlap on file (%lu <-> %lu) adjust later segment offset by adding PAGE_SIZE", i, j);
           for (size_t k = j; k < twelf->number_of_segments; ++k) {
             struct LibtwelfSegment *adjust_target_twelf_segment = &twelf->segment_table[k];
