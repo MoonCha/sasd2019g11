@@ -997,7 +997,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         uint64_t section_data_offset;
         uint64_t section_data_end;
         if (__builtin_add_overflow(non_alloc_section_data_start, (page_size - (non_alloc_section_data_start % page_size)) % page_size, &section_data_offset)
-         || __builtin_add_overflow(section_data_offset, twelf_section->internal->sh_offset, &segment_data_end)
+         || __builtin_add_overflow(section_data_offset, twelf_section->internal->sh_offset, &section_data_offset)
          || __builtin_add_overflow(section_data_offset, twelf_section->size, &section_data_end)
         ) {
           log_info("reallocated section offset overflows uint64_t");
