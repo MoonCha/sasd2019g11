@@ -85,6 +85,11 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     goto fail;
   }
   file_data = (char *)malloc(file_size);
+  if (file_data == NULL) {
+    log_info("malloc error");
+    return_code = ERR_NOMEM;
+    goto fail;
+  }
   if (fread(file_data, 1, file_size, file) < file_size) {
     log_info("fread error");
     return_code = ERR_IO;
