@@ -36,8 +36,8 @@ static int readSections(struct LibtwelfFile *elf);
 bool is_overlap(uint64_t a_start, uint64_t a_end, uint64_t b_start, uint64_t b_end) {
   return a_start < b_end && b_start < a_end;
 }
-bool is_partial_overlap(uint64_t a_start, uint64_t a_end, uint64_t b_start, uint64_t b_end) {
-  return is_overlap(a_start, a_end, b_start, b_end) && !((a_start <= b_start && b_end <= a_end) || (b_start <= a_start && a_end <= b_end));
+bool section_partially_overlap_segment(uint64_t section_start, uint64_t section_end, uint64_t segment_start, uint64_t segment_end) {
+  return is_overlap(section_start, section_end, segment_start, segment_end) && !(segment_start <= section_start && section_end <= segment_end);
 }
 
 int libtwelf_open(char *path, struct LibtwelfFile **result)
@@ -254,8 +254,8 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       goto fail;
     }
     for (size_t j = 0; j < ehdr->e_phnum; ++j) {
-      if (is_partial_overlap(shdr->sh_addr, section_vaddr_end, pt_load_segment_boundary_table[j][0], pt_load_segment_boundary_table[j][1])) {
-        log_info("section(index: %lu) paritally overlap with segment(index: %lu)", i, j);
+      if (section_partially_overlap_segment(shdr->sh_addr, section_vaddr_end, pt_load_segment_boundary_table[j][0], pt_load_segment_boundary_table[j][1])) {
+        log_info("section(index: %lu) paritally overlap or not fully contained within segment(index: %lu)", i, j);
         return_code = ERR_ELF_FORMAT;
         goto fail;
       }
