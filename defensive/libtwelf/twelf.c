@@ -167,6 +167,9 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     // phdr validity check
     Elf64_Off segment_end;
     uint64_t segment_vaddr_end;
+    log_info("phdr->p_offset: %lu", phdr->p_offset);
+    log_info("phdr->p_filesz: %lu", phdr->p_filesz);
+    log_info("filesize: %lu", file_size);
     if (phdr->p_offset >= file_size
      || __builtin_add_overflow(phdr->p_offset, phdr->p_filesz, &segment_end)
      || segment_end > file_size
@@ -213,6 +216,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     twelf_segment->internal->index = i;
     twelf_segment->internal->p_paddr = phdr->p_paddr;
     twelf_segment->internal->p_align = phdr->p_align;
+    twelf_segment->internal->p_offset = phdr->p_offset;
     twelf_segment->type = phdr->p_type;
     twelf_segment->vaddr = phdr->p_vaddr;
     twelf_segment->filesize = phdr->p_filesz;
@@ -457,6 +461,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
   // write data
   char* new_segment_data = realloc(segment->internal->segment_data, filesz);
   if (new_segment_data == NULL) {
+    log_info("realloc error");
     return ERR_NOMEM;
   }
   memcpy(new_segment_data, data, filesz);
@@ -756,6 +761,8 @@ int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, 
   memcpy(new_segment.internal->segment_data, data, len);
   new_segment.internal->p_align = 1;
   new_segment.internal->p_paddr = vaddr;
+  long page_size = sysconf(_SC_PAGE_SIZE);
+  new_segment.internal->p_offset = vaddr % page_size;
   new_segment.vaddr = vaddr;
   new_segment.readable = (flags & PF_R) == PF_R;
   new_segment.writeable = (flags & PF_W) == PF_W;
@@ -874,7 +881,8 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   if (twelf->number_of_segments > 0) {
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
-      segment_offset_table[i] = twelf_segment->vaddr % page_size;
+      segment_offset_table[i] = twelf_segment->internal->p_offset;
+      // segment_offset_table[i] = twelf_segment->vaddr % page_size;
     }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       if (segment_offset_table[i] < phdr_table_end) {
@@ -886,13 +894,13 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           return_value = ERR_NOMEM;
           goto fail;
         }
+        log_info("segment(index: %lu) overlaps with phdr table", i);
         for (size_t j = 0; j < twelf->number_of_segments; ++j) {
           segment_offset_table[j] += offset_adjust;
         }
         break;
       }
     }
-
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
       for (size_t j = i + 1; j < twelf->number_of_segments; ++j) {
@@ -1097,17 +1105,15 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     }
   }
   // write phdr table
-  long phdr_table_position = 0;
+  long phdr_table_position = sizeof(Elf64_Ehdr);
   if (twelf->number_of_segments > 0) {
-    phdr_table_position = ftell(outfile);
-    if (phdr_table_position == -1) {
-      log_info("ftell fail");
-      return_value = ERR_IO;
-      goto fail;
-    }
+    // phdr_table_position = ftell(outfile);
+    // if (phdr_table_position == -1) {
+    //   log_info("ftell fail");
+    //   return_value = ERR_IO;
+    //   goto fail;
+    // }
     log_info("phdr_table_position: %ld", phdr_table_position);
-    phdr_table_position += (8 - (phdr_table_position % 8)) % 8;
-    log_info("phdr_table_position (aligned): %ld", phdr_table_position);
     if (fseek(outfile, phdr_table_position, SEEK_SET)) {
       log_info("fseek fail");
       return_value = ERR_IO;

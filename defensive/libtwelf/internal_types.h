@@ -21,6 +21,7 @@ struct LibtwelfSegmentInternal
   size_t index; // index of LibtwelfSegment inside segment_table
   Elf64_Addr p_paddr;   /* Segment physical address */
   Elf64_Xword p_align;  /* Segment alignment */            // must be a power of 2
+  Elf64_Off p_offset;   /* Segment file offset */          // must be within elf file (including p_filesz)
   char *segment_data;
 };
 
