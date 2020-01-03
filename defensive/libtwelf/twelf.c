@@ -844,6 +844,14 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     return_value = ERR_IO;
     goto fail;
   }
+
+  // TODO: remove this code. this is test for test system
+  if (fwrite(twelf->internal->file_data, sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * twelf->number_of_segments, 1, outfile) < 1) {
+    log_info("fwrite error");
+    return_value = ERR_IO;
+    goto fail;
+  }
+
   // reconstruct phdr table
   if (fseek(outfile, sizeof(Elf64_Ehdr), SEEK_SET)) {
     log_info("fseek error");
