@@ -121,9 +121,8 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_ELF_FORMAT;
     goto fail;
   }
-  Elf64_Off shdr_table_end;
-  if (__builtin_mul_overflow(ehdr->e_shnum, ehdr->e_shentsize, &shdr_table_end)
-   || __builtin_add_overflow(ehdr->e_shoff, shdr_table_end, &shdr_table_end)) {
+  Elf64_Off shdr_table_end = ehdr->e_shnum * ehdr->e_shentsize;
+  if (__builtin_add_overflow(ehdr->e_shoff, shdr_table_end, &shdr_table_end)) {
      log_info("shdr_table_end calcuation overflow");
      return_code = ERR_ELF_FORMAT;
      goto fail;
