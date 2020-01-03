@@ -847,13 +847,6 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     goto fail;
   }
 
-  // TODO: remove this code. this is test for test system
-  if (fwrite(twelf->internal->file_data, sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr) * twelf->number_of_segments, 1, outfile) < 1) {
-    log_info("fwrite error");
-    return_value = ERR_IO;
-    goto fail;
-  }
-
   // reconstruct phdr table
   size_t phdr_table_end;
   if (__builtin_mul_overflow(sizeof(Elf64_Phdr), twelf->number_of_segments, &phdr_table_end)
@@ -863,6 +856,14 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     return_value = ERR_NOMEM;
     goto fail;
   }
+
+  // TODO: remove this code. this is test for test system
+  if (fwrite(twelf->internal->file_data, 1, phdr_table_end, outfile) < phdr_table_end) {
+    log_info("fwrite error");
+    return_value = ERR_IO;
+    goto fail;
+  }
+
   long page_size = sysconf(_SC_PAGE_SIZE);
   log_info("page_size: 0x%lx", page_size);
   segment_offset_table = (Elf64_Off *)calloc(sizeof(Elf64_Off), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
