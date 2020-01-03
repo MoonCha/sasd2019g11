@@ -7,6 +7,19 @@
 #include "libtwelf.h"
 #include "alloc_wrapper.h"
 
+START_TEST (libtwelf_open_fail)
+{
+  struct LibtwelfFile *twelf = NULL;
+  set_io_failcounter(1);
+  int ret = libtwelf_open("../test_elfs/empty.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_IO);
+
+  set_alloc_failcounter(1);
+  ret = libtwelf_open("../test_elfs/empty.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_NOMEM);
+}
+END_TEST
+
 
 START_TEST (libtwelf_open_empty_elf)
 {
@@ -509,6 +522,25 @@ START_TEST (libtwelf_stripSymbols_basic_with_write)
 }
 END_TEST
 
+START_TEST (libtwelf_stripSymbols_without_symtab)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_stripSymbols(twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 START_TEST (libtwelf_removeAllSections_basic)
 {
   struct LibtwelfFile *twelf;
@@ -769,6 +801,22 @@ START_TEST (libtwelf_addSymbol_basic_with_write)
 }
 END_TEST
 
+START_TEST (libtwelf_addSymbol_without_symtab)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 int main(int argc, char** argv)
 {
   Suite* suite = suite_create("Test suite");
@@ -777,6 +825,7 @@ int main(int argc, char** argv)
   #define ADD_TESTCASE(name) {if (argc < 3 || !strcmp(#name, argv[2])) { tcase_add_test(tcase, name);} }
 
 
+  ADD_TESTCASE(libtwelf_open_fail);
   ADD_TESTCASE(libtwelf_open_empty_elf);
   ADD_TESTCASE(libtwelf_open_filename);
   ADD_TESTCASE(libtwelf_open_segments_one);
@@ -798,6 +847,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_setSectionData_basic_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_basic);
   ADD_TESTCASE(libtwelf_stripSymbols_basic_with_write);
+  ADD_TESTCASE(libtwelf_stripSymbols_without_symtab);
   ADD_TESTCASE(libtwelf_removeAllSections_basic);
   ADD_TESTCASE(libtwelf_removeAllSections_simple_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic);
@@ -806,6 +856,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic_with_write);
+  ADD_TESTCASE(libtwelf_addSymbol_without_symtab);
 
   suite_add_tcase(suite, tcase);
 
