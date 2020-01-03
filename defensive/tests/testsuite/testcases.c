@@ -20,6 +20,14 @@ START_TEST (libtwelf_open_fail)
 }
 END_TEST
 
+START_TEST (libtwelf_open_invalid_elf_header1)
+{
+  struct LibtwelfFile *twelf = NULL;
+  int ret = libtwelf_open("../test_elfs/invalid_elf_header1.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+}
+END_TEST
+
 
 START_TEST (libtwelf_open_empty_elf)
 {
@@ -109,25 +117,6 @@ START_TEST (libtwelf_getAssociatedSegment_basic)
 }
 END_TEST
 
-START_TEST (libtwelf_write_test)
-{
-  struct LibtwelfFile *twelf = NULL;
-  char data[100];
-  int ret = libtwelf_open("../test_elfs/test.elf", &twelf);
-  ck_assert_int_eq(ret, SUCCESS);
-  ck_assert(twelf != NULL);
-  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_test_output.elf");
-  ck_assert_int_eq(ret, SUCCESS);
-
-  FILE *file = fopen("../test_elfs/libtwelf_write_test_output.elf", "r");
-  ck_assert_int_ne(0, fread(data, 16, 1, file));
-  fclose(file);
-  ck_assert(0 == memcmp(data, "\x7f\x45\x4c\x46\x02\x01\x01\0\0\0\0\0\0\0\0\0", 16));
-
-  libtwelf_close(twelf);
-}
-END_TEST
-
 START_TEST (libtwelf_write_basic)
 {
   struct LibtwelfFile *twelf = NULL;
@@ -196,6 +185,25 @@ START_TEST (libtwelf_write_infiniteloop_mini)
   ck_assert_int_eq(ret, SUCCESS);
 
   FILE *file = fopen("../test_elfs/libtwelf_write_infiniteloop_mini_output.elf", "r");
+  ck_assert_int_ne(0, fread(data, 16, 1, file));
+  fclose(file);
+  ck_assert(0 == memcmp(data, "\x7f\x45\x4c\x46\x02\x01\x01\0\0\0\0\0\0\0\0\0", 16));
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_write_gcc1)
+{
+  struct LibtwelfFile *twelf = NULL;
+  char data[100];
+  int ret = libtwelf_open("../test_elfs/gcc1.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert(twelf != NULL);
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_gcc1_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
+
+  FILE *file = fopen("../test_elfs/libtwelf_write_gcc1_output.elf", "r");
   ck_assert_int_ne(0, fread(data, 16, 1, file));
   fclose(file);
   ck_assert(0 == memcmp(data, "\x7f\x45\x4c\x46\x02\x01\x01\0\0\0\0\0\0\0\0\0", 16));
@@ -826,16 +834,17 @@ int main(int argc, char** argv)
 
 
   ADD_TESTCASE(libtwelf_open_fail);
+  ADD_TESTCASE(libtwelf_open_invalid_elf_header1);
   ADD_TESTCASE(libtwelf_open_empty_elf);
   ADD_TESTCASE(libtwelf_open_filename);
   ADD_TESTCASE(libtwelf_open_segments_one);
   ADD_TESTCASE(libtwelf_open_section_name);
   ADD_TESTCASE(libtwelf_open_io);
-  ADD_TESTCASE(libtwelf_write_test);
   ADD_TESTCASE(libtwelf_write_basic);
   ADD_TESTCASE(libtwelf_write_simple);
   ADD_TESTCASE(libtwelf_write_symtab);
   ADD_TESTCASE(libtwelf_write_infiniteloop_mini);
+  ADD_TESTCASE(libtwelf_write_gcc1);
   ADD_TESTCASE(libtwelf_getAssociatedSegment_basic);
   ADD_TESTCASE(libtwelf_getSectionData_basic);
   ADD_TESTCASE(libtwelf_getSegmentData_basic);
