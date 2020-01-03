@@ -257,7 +257,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
         goto fail;
       }
     }
-    if (i == 0 && shdr->sh_type != SHT_NULL) {
+    if (i == SHN_UNDEF && shdr->sh_type != SHT_NULL) {
       log_info("first shdr is not SHT_NULL type");
       return_code = ERR_ELF_FORMAT;
       goto fail;
