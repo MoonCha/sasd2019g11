@@ -964,6 +964,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
        && twelf_section->type != SHT_NULL
       ) {
         log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
+        // TODO: non-associated section & non-PT_LOAD segment overlap -> adjust offset to overlap in file, otherwise non-PT_LOAD overlapping data are written twice.
         // TODO: implemented in dumb way --> writing on the next page of segment data / can check & write on the same page if not overlapped
         uint64_t section_data_offset;
         uint64_t section_data_end;
