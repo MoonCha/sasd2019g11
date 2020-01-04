@@ -537,10 +537,6 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
   if (segment_found) {
     uint64_t offset = section->address - associated_segment->vaddr;
     uint64_t padding_count = original_size > size ? original_size - size : 0;
-    if (offset >= associated_segment->filesize) {
-      log_warn("WRONG IMPLEMENTATION: section offset inside associated_segment exceeds segment range");
-      return ERR_INVALID_ARG;
-    }
     char *section_file_start = (char *)((uintptr_t)associated_segment->internal->segment_data + offset);
     log_info("offset: %lu", offset);
     log_info("padding_count: %lu", padding_count);
