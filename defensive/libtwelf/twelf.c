@@ -475,13 +475,15 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
     if (target_segment == segment) {
       continue;
     }
+    uint64_t segment_file_start = segment->vaddr;
+    uint64_t segment_file_end = segment->vaddr + segment->filesize;
     uint64_t target_segment_start = target_segment->vaddr;
-    uint64_t target_segment_end = target_segment->vaddr + target_segment->memsize; // overflow checked by open
-    if (is_overlap(altered_segment_start, altered_segment_end, target_segment_start, target_segment_end)) {
-      uint64_t target_data_offset = altered_segment_start > target_segment_start ? altered_segment_start - target_segment_start : 0;
-      uint64_t data_offset = altered_segment_start < target_segment_start ? target_segment_start - altered_segment_start : 0;
-      uint64_t larger_start = altered_segment_start > target_segment_start ? altered_segment_start : target_segment_start;
-      uint64_t smaller_end = altered_segment_end < target_segment_end ? altered_segment_end :target_segment_end;
+    uint64_t target_segment_end = target_segment->vaddr + target_segment->filesize; // overflow checked by open
+    if (is_overlap(segment_file_start, segment_file_end, target_segment_start, target_segment_end)) {
+      uint64_t target_data_offset = segment_file_start > target_segment_start ? segment_file_start - target_segment_start : 0;
+      uint64_t data_offset = segment_file_start < target_segment_start ? target_segment_start - segment_file_start : 0;
+      uint64_t larger_start = segment_file_start > target_segment_start ? segment_file_start : target_segment_start;
+      uint64_t smaller_end = segment_file_end < target_segment_end ? segment_file_end :target_segment_end;
       uint64_t overlapped_size = smaller_end - larger_start;
       char *dest_addr = (char *)((uintptr_t)target_segment->internal->segment_data + target_data_offset);
       char *src_addr = (char *)((uintptr_t)segment->internal->segment_data + data_offset);
@@ -489,6 +491,7 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
     }
   }
 
+  log_info("setSegmentData: SUCCESS");
   return SUCCESS;
 }
 
