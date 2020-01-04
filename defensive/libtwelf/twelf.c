@@ -509,7 +509,7 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
       continue;
     }
     uint64_t target_section_start = target_section->address;
-    uint64_t target_section_end = target_section->address + target_section->size; // overflow checked by open
+    uint64_t target_section_end = target_section->address + target_section->size; // overflow checked by open and setSectionData
     if (is_overlap(section_start, altered_section_end, target_section_start, target_section_end)) {
       return ERR_INVALID_ARG;
     }
@@ -517,7 +517,7 @@ int libtwelf_setSectionData(struct LibtwelfFile *twelf, struct LibtwelfSection *
   struct LibtwelfSegment *associated_segment = NULL;
   bool segment_found = libtwelf_getAssociatedSegment(twelf, section, &associated_segment) == SUCCESS;
   if (segment_found) {
-    uint64_t associated_segment_end = associated_segment->vaddr + associated_segment->filesize; // overflow checked by open
+    uint64_t associated_segment_end = associated_segment->vaddr + associated_segment->filesize; // overflow checked by open and modification functions
     if (altered_section_end > associated_segment_end) {
       return ERR_INVALID_ARG;
     }
@@ -577,7 +577,12 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
     if (target_section == section) { // TODO: pointer comparison might not be safe? compare index?
       continue;
     }
-    uint64_t target_name_limit = shstrtab_twelf_section->size - target_section->internal->sh_name;  // overflow checked by open
+    if (target_section->internal->sh_name >= shstrtab_twelf_section->size) { // libtwelf_open checks this, but setSectionData can break this condition
+      log_info("section(index: %lu) has invalid sh_name", i);
+      return_value = ERR_ELF_FORMAT;
+      goto fail;
+    }
+    uint64_t target_name_limit = shstrtab_twelf_section->size - target_section->internal->sh_name;
     size_t target_section_name_length = strnlen(target_section->name, target_name_limit) + 1; // handle the case when shstrtab does not have terminator on end of string
     total_name_size += target_section_name_length;
     name_length_array[i] = target_section_name_length;
