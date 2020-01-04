@@ -643,7 +643,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   // validation
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0) {
+    if (section->type == SHT_SYMTAB) {
       link_section_index = section->internal->sh_link;
       if (link_section_index == 0) {
         log_info(".symtab have invalid link: %lu", link_section_index);
@@ -1034,7 +1034,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       struct LibtwelfSection *twelf_section = &twelf->section_table[i];
       struct LibtwelfSegment *associated_twelf_segment;
       Elf64_Off section_offset = twelf_section->internal->sh_offset;
-      log_info("processing section(%s, index: %lu)", twelf_section->name, i);
+      log_info("processing section(index: %lu)", i);
 
       bool associated_segment_found = libtwelf_getAssociatedSegment(twelf, twelf_section, &associated_twelf_segment) == SUCCESS;
       if ((twelf_section->flags & SHF_ALLOC) != SHF_ALLOC
@@ -1048,7 +1048,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           goto fail;
         }
         section_offset = cur_position;
-        log_info("non-associated section(%s, index: %lu) offset recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->internal->sh_offset, section_offset);
+        log_info("non-associated section(index: %lu) offset recalculated: %lu -> %lu", i, twelf_section->internal->sh_offset, section_offset);
         if (twelf_section->type != SHT_NOBITS) {
           if (fwrite(twelf_section->internal->section_data, 1, twelf_section->size, outfile) < twelf_section->size) {
             log_info("fwrite error");
@@ -1057,7 +1057,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           }
         }
       } else {
-        log_info("section(%s, index: %lu) uses original offset", twelf_section->name, i);
+        log_info("section(index: %lu) uses original offset", i);
       }
       if (associated_segment_found) {
         uint64_t new_section_offset;
@@ -1067,7 +1067,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           goto fail;
         }
         section_offset = new_section_offset;
-        log_info("associated section(%s, index: %lu) offset recalculated: %lu -> %lu", twelf_section->name, i, twelf_section->internal->sh_offset, section_offset);
+        log_info("associated section(index: %lu) offset recalculated: %lu -> %lu", i, twelf_section->internal->sh_offset, section_offset);
       }
       Elf64_Shdr *section = &shdr_table[i];
       section->sh_name = twelf_section->internal->sh_name;
