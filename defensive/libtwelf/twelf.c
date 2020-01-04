@@ -433,18 +433,18 @@ int libtwelf_setSegmentData(struct LibtwelfFile *twelf, struct LibtwelfSegment *
   if (filesz > memsz) {
     return ERR_INVALID_ARG;
   }
-  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
-    struct LibtwelfSection *section = &twelf->section_table[i];
-    uint64_t section_start = section->address;
-    uint64_t section_end = section->address + section->size;
-    if (is_overlap(section_start, section_end, segment->vaddr, segment->vaddr + segment->memsize)) {
-      return ERR_INVALID_ARG;
-    }
-  }
   uint64_t altered_segment_start = segment->vaddr;
   uint64_t altered_segment_end;
   if (__builtin_add_overflow(segment->vaddr, memsz, &altered_segment_end)) {
     return ERR_INVALID_ARG;
+  }
+  for (size_t i = 0; i < twelf->number_of_sections; ++i) {
+    struct LibtwelfSection *section = &twelf->section_table[i];
+    uint64_t section_start = section->address;
+    uint64_t section_end = section->address + section->size;
+    if (section_partially_overlap_segment(section_start, section_end, altered_segment_start, altered_segment_end)) {
+      return ERR_INVALID_ARG;
+    }
   }
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *target_segment = &twelf->segment_table[i];
