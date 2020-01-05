@@ -1176,6 +1176,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   ehdr->e_phoff = phdr_table_position;
   ehdr->e_shnum = twelf->number_of_sections;
   ehdr->e_phnum = twelf->number_of_segments;
+  ehdr->e_shstrndx = twelf->internal->e_shstrndx;
   log_info("reconstructed ehdr->e_shoff: %lu", ehdr->e_shoff);
   log_info("reconstructed ehdr->e_phoff: %lu", ehdr->e_phoff);
   if (fseek(outfile, 0, SEEK_SET)) {
