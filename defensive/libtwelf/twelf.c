@@ -884,8 +884,8 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   if (twelf->number_of_segments > 0) {
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
-      segment_offset_table[i] = twelf_segment->internal->p_offset;
-      // segment_offset_table[i] = twelf_segment->vaddr % page_size;
+      // segment_offset_table[i] = twelf_segment->internal->p_offset;
+      segment_offset_table[i] = twelf_segment->vaddr % page_size;
     }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       if (segment_offset_table[i] < phdr_table_end) {
