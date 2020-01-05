@@ -899,7 +899,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   }
 
   // TODO: remove this code. this is test for test system
-  if (fwrite(twelf->internal->file_data, 1, phdr_table_end, outfile) < phdr_table_end) {
+  if (fwrite(twelf->internal->file_data, 1, twelf->internal->file_size, outfile) < twelf->internal->file_size) {
     log_info("fwrite error");
     return_value = ERR_IO;
     goto fail;
