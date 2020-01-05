@@ -331,7 +331,6 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
       }
     }
   }
-  log_info("Hello, Greetings6");
 
   // replicate path
   size_t file_name_buffer_length = strlen(path) + 1;
