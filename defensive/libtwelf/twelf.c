@@ -1035,7 +1035,6 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
         // TODO: non-associated section & non-PT_LOAD segment overlap -> adjust offset to overlap in file, otherwise non-PT_LOAD overlapping data are written twice.
         // TODO: implemented in dumb way --> writing on the next page of segment data / can check & write on the same page if not overlapped
-        // TODO: if offset should also be aligned by sh_addralign, compare page_size <> sh_addralign and larger one for alignment
         uint64_t section_data_offset;
         uint64_t section_data_end;
         if (__builtin_add_overflow(non_alloc_section_data_start, (page_size - (non_alloc_section_data_start % page_size)) % page_size, &section_data_offset)
@@ -1079,14 +1078,6 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         long cur_position = ftell(outfile);
         if (cur_position == -1) {
           log_info("ftell fail");
-          return_value = ERR_IO;
-          goto fail;
-        }
-        log_info("non-associated section(index: %lu) new offset (before alignment): %ld", i, cur_position);
-        cur_position += (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
-        log_info("non-associated section(index: %lu) new offset (after alignment): %ld", i, cur_position);
-        if (fseek(outfile, cur_position, SEEK_SET)) {
-          log_info("fseek fail");
           return_value = ERR_IO;
           goto fail;
         }
