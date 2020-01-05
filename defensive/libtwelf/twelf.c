@@ -802,9 +802,9 @@ int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, 
     goto fail;
   }
   memcpy(new_segment.internal->segment_data, data, len);
-  new_segment.internal->p_align = 1;
-  new_segment.internal->p_paddr = vaddr;
   long page_size = sysconf(_SC_PAGE_SIZE);
+  new_segment.internal->p_align = page_size;
+  new_segment.internal->p_paddr = vaddr;
   new_segment.internal->p_offset = vaddr % page_size;
   new_segment.vaddr = vaddr;
   new_segment.readable = (flags & PF_R) == PF_R;
