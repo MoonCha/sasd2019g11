@@ -15,8 +15,8 @@ ehdr:                                ; elf64_ehdr
   dw phdrsize                        ;   e_phentsize
   dw 2                               ;   e_phnum
   dw shdrsize                        ;   e_shentsize
-  dw 9                               ;   e_shnum
-  dw 2                               ;   e_shstrndx
+  dw 5                               ;   e_shnum
+  dw 4                               ;   e_shstrndx
 ehdrsize      equ     $ - ehdr
 
 phdr:
@@ -100,44 +100,8 @@ shdr2:                               ; elf64_shdr
   dq 6                               ;   sh_flags
   dq segment1                        ;   sh_addr
   dq segment1 - $$                   ;   sh_offset
-  dq 0                               ;   sh_size
+  dq segment1size                    ;   sh_size
   dd 0                               ;   sh_link
-  dd 0                               ;   sh_info
-  dq 2                               ;   sh_addralign
-  dq 0                               ;   sh_entsize
-
-shdr3:                               ; elf64_shdr
-  dd str_shstrtab - shstrtab         ;   sh_name
-  dd 3                               ;   sh_type
-  dq 0                               ;   sh_flags
-  dq 0                               ;   sh_addr
-  dq shstrtab - $$                   ;   sh_offset
-  dq shstrtabsize                    ;   sh_size
-  dd 0                               ;   sh_link
-  dd 0                               ;   sh_info
-  dq 2                               ;   sh_addralign
-  dq 0                               ;   sh_entsize
-
-shdr6:                               ; elf64_shdr
-  dd str_text - shstrtab             ;   sh_name
-  dd 1                               ;   sh_type
-  dq 6                               ;   sh_flags
-  dq segment1                        ;   sh_addr
-  dq segment1 - $$                   ;   sh_offset
-  dq 2                               ;   sh_size
-  dd 6                               ;   sh_link
-  dd 0                               ;   sh_info
-  dq 2                               ;   sh_addralign
-  dq 0                               ;   sh_entsize
-
-shdr7:                               ; elf64_shdr
-  dd str_text - shstrtab             ;   sh_name
-  dd 1                               ;   sh_type
-  dq 6                               ;   sh_flags
-  dq segment1 + 2                    ;   sh_addr
-  dq segment1 - $$ + 2               ;   sh_offset
-  dq 2                               ;   sh_size
-  dd 8                               ;   sh_link
   dd 0                               ;   sh_info
   dq 2                               ;   sh_addralign
   dq 0                               ;   sh_entsize
@@ -149,22 +113,10 @@ shdr4:                               ; elf64_shdr
   dq 0                               ;   sh_addr
   dq symtab - $$                     ;   sh_offset
   dq symtabsize                      ;   sh_size
-  dd 7                               ;   sh_link
+  dd 3                               ;   sh_link
   dd 1                               ;   sh_info ; Index of first non-local symbol
   dq 8                               ;   sh_addralign
   dq 24                              ;   sh_entsize
-
-shdr8:                               ; elf64_shdr
-  dd str_strtab - shstrtab           ;   sh_name
-  dd 3                               ;   sh_type
-  dq 6                               ;   sh_flags
-  dq segment1 + 4                    ;   sh_addr
-  dq segment1 - $$ + 4               ;   sh_offset
-  dq 2                               ;   sh_size
-  dd 1                               ;   sh_link
-  dd 0                               ;   sh_info
-  dq 2                               ;   sh_addralign
-  dq 0                               ;   sh_entsize
 
 shdr5:                               ; elf64_shdr
   dd str_strtab - shstrtab           ;   sh_name
@@ -178,14 +130,14 @@ shdr5:                               ; elf64_shdr
   dq 8                               ;   sh_addralign
   dq 0                               ;   sh_entsize
 
-shdr9:                               ; elf64_shdr
-  dd str_strtab - shstrtab           ;   sh_name
+shdr3:                               ; elf64_shdr
+  dd str_shstrtab - shstrtab         ;   sh_name
   dd 3                               ;   sh_type
-  dq 6                               ;   sh_flags
-  dq segment1 + 6                    ;   sh_addr
-  dq segment1 - $$ + 6               ;   sh_offset
-  dq 2                               ;   sh_size
-  dd 7                               ;   sh_link
+  dq 0                               ;   sh_flags
+  dq 0                               ;   sh_addr
+  dq shstrtab - $$                   ;   sh_offset
+  dq shstrtabsize                    ;   sh_size
+  dd 0                               ;   sh_link
   dd 0                               ;   sh_info
   dq 2                               ;   sh_addralign
   dq 0                               ;   sh_entsize
