@@ -713,7 +713,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
       if (updated_section->internal->sh_link >= symtab_section_index) {
         new_sh_link--;
       }
-      if (symtab_section_index != link_section_index && updated_section->internal->sh_link >= link_section_index) {  // edge case: symtab links itself
+      if (updated_section->internal->sh_link >= link_section_index) {
         new_sh_link--;
       }
     }
@@ -726,7 +726,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   if (twelf->internal->e_shstrndx >= symtab_section_index) {
     new_e_shstrndx--;
   }
-  if (symtab_section_index != link_section_index && twelf->internal->e_shstrndx >= link_section_index) {
+  if (twelf->internal->e_shstrndx >= link_section_index) {
     new_e_shstrndx--;
   }
   twelf->internal->e_shstrndx = new_e_shstrndx;
@@ -734,10 +734,8 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   // replace section table
   free(symtab_section->internal->section_data);
   free(symtab_section->internal);
-  if (symtab_section != link_section) { // edge case: symtab links itself
-    free(link_section->internal->section_data);
-    free(link_section->internal);
-  }
+  free(link_section->internal->section_data);
+  free(link_section->internal);
   free(twelf->section_table);
   twelf->section_table = new_section_table;
   twelf->number_of_sections = current_index;
