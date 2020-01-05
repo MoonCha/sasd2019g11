@@ -722,6 +722,14 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
     updated_section->link = &new_section_table[new_sh_link];
     current_index++;
   }
+  Elf64_Half new_e_shstrndx = twelf->internal->e_shstrndx;
+  if (twelf->internal->e_shstrndx >= symtab_section_index) {
+    new_e_shstrndx--;
+  }
+  if (symtab_section_index != link_section_index && twelf->internal->e_shstrndx >= link_section_index) {
+    new_e_shstrndx--;
+  }
+  twelf->internal->e_shstrndx = new_e_shstrndx;
 
   // replace section table
   free(symtab_section->internal->section_data);
