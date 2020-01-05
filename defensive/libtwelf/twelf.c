@@ -672,7 +672,6 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
     if (section->type == SHT_SYMTAB) {
-      symtab_count++;
       link_section_index = section->internal->sh_link;
       if (section->link->type != SHT_STRTAB) {
         log_info(".symtab have invalid link: %lu", link_section_index);
@@ -681,6 +680,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
       symtab_section_index = i;
       symtab_section = section;
       link_section = section->link;
+      symtab_count++;
     }
   }
   if (symtab_count != 1) {
