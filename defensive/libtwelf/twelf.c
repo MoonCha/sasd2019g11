@@ -51,6 +51,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   struct LibtwelfSegment *segment_table = NULL;
   Elf64_Off (*pt_load_segment_boundary_table)[2] = NULL;
   struct LibtwelfSection *section_table = NULL;
+  Elf64_Off (*alloc_section_boundary_table)[2] = NULL;
   char *file_name = NULL;
   struct LibtwelfFileInternal *twelf_file_internal = NULL;
   struct LibtwelfFile *twelf_file = NULL;
@@ -233,6 +234,12 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
+  alloc_section_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, ehdr->e_shnum > 0 ? ehdr->e_shnum : 1); // 1 for preventing zero-size allocation
+  if (alloc_section_boundary_table == NULL) {
+    log_info("calloc error");
+    return_code = ERR_NOMEM;
+    goto fail;
+  }
   Elf64_Shdr *shstrtab_shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + ehdr->e_shstrndx * ehdr->e_shentsize);
   for (size_t i = 0; i < ehdr->e_shnum; ++i) {
     Elf64_Shdr *shdr = (Elf64_Shdr *)(((uintptr_t)file_data + ehdr->e_shoff) + i * ehdr->e_shentsize);
@@ -295,12 +302,36 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     twelf_section->type = shdr->sh_type;
     twelf_section->flags = shdr->sh_flags;
     twelf_section->link = &section_table[shdr->sh_link];
+
+    // update boundary table
+    if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC) {
+      alloc_section_boundary_table[i][0] = twelf_section->address;
+      alloc_section_boundary_table[i][1] = section_vaddr_end;
+    }
   }
   struct LibtwelfSection *shstrtab_twelf_section = &section_table[ehdr->e_shstrndx];
   for (size_t i = 0; i < ehdr->e_shnum; ++i) {
     struct LibtwelfSection *twelf_section = &section_table[i];
     twelf_section->name = (char *)((uintptr_t)shstrtab_twelf_section->internal->section_data + twelf_section->internal->sh_name);
   }
+
+  // TODO: remove if this validation deducts point (check section overlaps)
+  for (size_t i = 0; i < ehdr->e_shnum; ++i) {
+    struct LibtwelfSection *twelf_section = &section_table[i];
+    if ((twelf_section->flags & SHF_ALLOC) == SHF_ALLOC) {
+      for (size_t j = i + 1; j < ehdr->e_shnum; ++j) {
+        struct LibtwelfSection *target_twelf_section = &section_table[j];
+        if ((target_twelf_section->flags & SHF_ALLOC) == SHF_ALLOC) {
+          if (is_overlap(twelf_section->address, twelf_section->address + twelf_section->size, target_twelf_section->address, target_twelf_section->address + target_twelf_section->size)) {
+            log_info("SHF_ALLOC sections are overlapping");
+            return_code = ERR_ELF_FORMAT;
+            goto fail;
+          }
+        }
+      }
+    }
+  }
+  log_info("Hello, Greetings6");
 
   // replicate path
   size_t file_name_buffer_length = strlen(path) + 1;
@@ -339,6 +370,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   *result = twelf_file;
 
   // clean up
+  free(alloc_section_boundary_table);
   free(pt_load_segment_boundary_table);
   fclose(file);
   log_info("libtwelf_open: Success");
@@ -348,6 +380,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
   free(twelf_file);
   free(twelf_file_internal);
   free(file_name);
+  free(alloc_section_boundary_table);
   if (section_table != NULL) {
     for (size_t i = 0; i < ehdr->e_shnum; ++i) {
       struct LibtwelfSection *twelf_section = &section_table[i];
