@@ -673,7 +673,7 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
     struct LibtwelfSection *section = &twelf->section_table[i];
     if (section->type == SHT_SYMTAB) {
       link_section_index = section->internal->sh_link;
-      if (link_section_index == 0) {
+      if (section->link->type != SHT_STRTAB) {
         log_info(".symtab have invalid link: %lu", link_section_index);
         continue;
       }

@@ -10,9 +10,18 @@
 START_TEST (libtwelf_open_fail)
 {
   struct LibtwelfFile *twelf = NULL;
-  set_io_failcounter(1);
-  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  int ret = ERR_IO;
+
+  size_t io_fail_counter = 1;
+  set_io_failcounter(io_fail_counter);
+  ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
   ck_assert_int_eq(ret, ERR_IO);
+  while (ret == ERR_IO) {
+    set_io_failcounter(io_fail_counter);
+    ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+    io_fail_counter++;
+  }
+  set_io_failcounter(0);
 
   for (size_t i = 1; i < 19; ++i) {
     set_alloc_failcounter(i);
@@ -225,9 +234,16 @@ START_TEST (libtwelf_write_fail)
   ck_assert_int_eq(ret, SUCCESS);
   ck_assert(twelf != NULL);
 
-  set_io_failcounter(1);
+  size_t io_fail_counter = 1;
+  set_io_failcounter(io_fail_counter);
   ret = libtwelf_write(twelf, "../test_elfs/libtwelf_write_fail_output.elf");
   ck_assert_int_eq(ret, ERR_IO);
+  while (ret == ERR_IO) {
+    set_io_failcounter(io_fail_counter);
+    ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+    io_fail_counter++;
+  }
+  set_io_failcounter(0);
 
   for (size_t i = 1; i < 4; ++i) {
     printf("current i = %lu\n", i);
@@ -1015,6 +1031,35 @@ START_TEST (libtwelf_stripSymbols_self_link_with_write)
 }
 END_TEST
 
+START_TEST (libtwelf_stripSymbols_shstrndx_update)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab5.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  ret = libtwelf_stripSymbols(twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_stripSymbols_shstrndx_update_output.elf");
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_stripSymbols_shstrndx_update_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 START_TEST (libtwelf_stripSymbols_basic)
 {
   struct LibtwelfFile *twelf;
@@ -1626,6 +1671,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_stripSymbols_fail);
   ADD_TESTCASE(libtwelf_stripSymbols_no_link);
   ADD_TESTCASE(libtwelf_stripSymbols_self_link_with_write);
+  ADD_TESTCASE(libtwelf_stripSymbols_shstrndx_update);
   ADD_TESTCASE(libtwelf_stripSymbols_basic);
   ADD_TESTCASE(libtwelf_stripSymbols_basic_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_without_symtab);
