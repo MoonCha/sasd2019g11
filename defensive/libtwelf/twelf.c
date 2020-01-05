@@ -1321,7 +1321,7 @@ int libtwelf_addSymbol(struct LibtwelfFile *twelf, struct LibtwelfSection* secti
     return ERR_NOMEM;
   }
   char *new_symtab_section_data = (char *)calloc(symbol_size, symbol_count + 1);
-  if (new_strtab_section_data == NULL) {
+  if (new_symtab_section_data == NULL) {
     log_info("calloc error");
     free(new_strtab_section_data);
     return ERR_NOMEM;
