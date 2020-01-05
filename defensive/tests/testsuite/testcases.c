@@ -14,7 +14,7 @@ START_TEST (libtwelf_open_fail)
   int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
   ck_assert_int_eq(ret, ERR_IO);
 
-  for (size_t i = 1; i < 18; ++i) {
+  for (size_t i = 1; i < 19; ++i) {
     set_alloc_failcounter(i);
     ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
     ck_assert_int_eq(ret, ERR_NOMEM);
@@ -121,6 +121,10 @@ START_TEST (libtwelf_open_invalid_section_header)
 
   // section contains PT_LOAD segment (--> section is not fully contained within a PT_LOAD segment)
   ret = libtwelf_open("../test_elfs/invalid_section_header10.elf", &twelf);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  // section overlaps
+  ret = libtwelf_open("../test_elfs/invalid_section_header11.elf", &twelf);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
 }
 END_TEST
@@ -982,6 +986,35 @@ START_TEST (libtwelf_stripSymbols_no_link)
 }
 END_TEST
 
+START_TEST (libtwelf_stripSymbols_self_link_with_write)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab4.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  ret = libtwelf_stripSymbols(twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 4);
+
+  ret = libtwelf_write(twelf, "../test_elfs/libtwelf_stripSymbols_self_link_output.elf");
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_stripSymbols_self_link_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 4);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 START_TEST (libtwelf_stripSymbols_basic)
 {
   struct LibtwelfFile *twelf;
@@ -1131,6 +1164,31 @@ END_TEST
 
 START_TEST (libtwelf_addLoadSegment_fail)
 {
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  char segment[0x1234];
+  memset(segment, 0x90, sizeof(segment));
+  for (size_t i = 1; i < 4; ++i) {
+    set_alloc_failcounter(i);
+    ret = libtwelf_addLoadSegment(twelf, segment, sizeof(segment), PF_W | PF_R | PF_X, 0xdeadbeef);
+    ck_assert_int_eq(ret, ERR_NOMEM);
+  }
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_addLoadSegment_invalid_args)
+{
+  // TODO
   struct LibtwelfFile *twelf;
   int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
   ck_assert_int_eq(ret, SUCCESS);
@@ -1325,6 +1383,95 @@ START_TEST (libtwelf_resolveSymbol_basic)
   ck_assert_int_eq(ret, SUCCESS);
   ck_assert_int_eq(value, 0x1337);
 
+  ret = libtwelf_resolveSymbol(twelf, "there_is_no_symbol_like_this", &value);
+  ck_assert_int_eq(ret, ERR_NOT_FOUND);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_resolveSymbol_without_symtab)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 3);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "test", &value);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_resolveSymbol_no_link)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab3.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "test", &value);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_resolveSymbol_invalid_st_name)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/invalid_symbol_st_name.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "test", &value);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_addSymbol_fail)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  for (size_t i = 1; i < 3; ++i) {
+    set_alloc_failcounter(i);
+    ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
+    ck_assert_int_eq(ret, ERR_NOMEM);
+  }
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_addSymbol_invalid_args)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_NOTYPE, 0xdeadbeef);
+  ck_assert_int_eq(ret, ERR_INVALID_ARG);
+
   libtwelf_close(twelf);
 }
 END_TEST
@@ -1340,6 +1487,18 @@ START_TEST (libtwelf_addSymbol_basic)
 
   ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
   ck_assert_int_eq(ret, SUCCESS);
+
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol2", STT_FUNC, 0xcafebabe);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xdeadbeef);
+
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol2", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xcafebabe);
 
   libtwelf_close(twelf);
 }
@@ -1357,8 +1516,36 @@ START_TEST (libtwelf_addSymbol_basic_with_write)
   ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
   ck_assert_int_eq(ret, SUCCESS);
 
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol2", STT_FUNC, 0xcafebabe);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xdeadbeef);
+
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol2", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xcafebabe);
+
   ret = libtwelf_write(twelf, "../test_elfs/libtwelf_addSymbol_basic_with_write_output.elf");
   ck_assert_int_eq(ret, SUCCESS);
+
+  libtwelf_close(twelf);
+
+  ret = libtwelf_open("../test_elfs/libtwelf_addSymbol_basic_with_write_output.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 2);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
+
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xdeadbeef);
+
+  ret = libtwelf_resolveSymbol(twelf, "new_symbol2", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0xcafebabe);
 
   libtwelf_close(twelf);
 }
@@ -1367,11 +1554,27 @@ END_TEST
 START_TEST (libtwelf_addSymbol_without_symtab)
 {
   struct LibtwelfFile *twelf;
-  int ret = libtwelf_open("../test_elfs/simple.elf", &twelf);
+  int ret = libtwelf_open("../test_elfs/empty.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 0);
+  ck_assert_int_eq(twelf->number_of_sections, 0);
+
+  ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
+  ck_assert_int_eq(ret, ERR_ELF_FORMAT);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
+START_TEST (libtwelf_addSymbol_no_link)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/symtab3.elf", &twelf);
   ck_assert_int_eq(ret, SUCCESS);
 
   ck_assert_int_eq(twelf->number_of_segments, 2);
-  ck_assert_int_eq(twelf->number_of_sections, 3);
+  ck_assert_int_eq(twelf->number_of_sections, 5);
 
   ret = libtwelf_addSymbol(twelf, &twelf->section_table[1], "new_symbol", STT_OBJECT, 0xdeadbeef);
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
@@ -1422,6 +1625,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_setSectionData_non_associated_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_fail);
   ADD_TESTCASE(libtwelf_stripSymbols_no_link);
+  ADD_TESTCASE(libtwelf_stripSymbols_self_link_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_basic);
   ADD_TESTCASE(libtwelf_stripSymbols_basic_with_write);
   ADD_TESTCASE(libtwelf_stripSymbols_without_symtab);
@@ -1429,13 +1633,20 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_removeAllSections_basic);
   ADD_TESTCASE(libtwelf_removeAllSections_simple_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_fail);
+  ADD_TESTCASE(libtwelf_addLoadSegment_invalid_args);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic);
   ADD_TESTCASE(libtwelf_addLoadSegment_basic_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_offset_overlap);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
+  ADD_TESTCASE(libtwelf_resolveSymbol_without_symtab);
+  ADD_TESTCASE(libtwelf_resolveSymbol_no_link);
+  ADD_TESTCASE(libtwelf_resolveSymbol_invalid_st_name);
+  ADD_TESTCASE(libtwelf_addSymbol_fail);
+  ADD_TESTCASE(libtwelf_addSymbol_invalid_args);
   ADD_TESTCASE(libtwelf_addSymbol_basic);
   ADD_TESTCASE(libtwelf_addSymbol_basic_with_write);
   ADD_TESTCASE(libtwelf_addSymbol_without_symtab);
+  ADD_TESTCASE(libtwelf_addSymbol_no_link);
 
   suite_add_tcase(suite, tcase);
 
