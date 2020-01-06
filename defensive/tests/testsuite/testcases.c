@@ -1032,6 +1032,20 @@ START_TEST (libtwelf_setSectionData_basic)
   ck_assert_int_eq(memsz, 8);
   ck_assert(0 == memcmp(out_data, "\x07\x06\x05\x00\x00\x00\x00\x00", 8));
 
+  ret = libtwelf_setSectionData(twelf, &twelf->section_table[1], data, 3);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ret = libtwelf_getSectionData(twelf, &twelf->section_table[1], &out_data, &len);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(len, 3);
+  ck_assert(0 == memcmp(out_data, data, 3));
+
+  ret = libtwelf_getSegmentData(twelf, &twelf->segment_table[0], &out_data, &filesz, &memsz);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(filesz, 8);
+  ck_assert_int_eq(memsz, 8);
+  ck_assert(0 == memcmp(out_data, "\x07\x06\x05\x00\x00\x00\x00\x00", 8));
+
   libtwelf_close(twelf);
 }
 END_TEST
