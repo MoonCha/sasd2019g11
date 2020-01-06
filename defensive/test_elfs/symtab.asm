@@ -41,6 +41,7 @@ phdr2:                               ; elf64_phdr
   dq segment2size                    ;   p_memsz
   dq 0x1000                          ;   p_align
 
+align 2
 segment1:
   _start:
   xor  eax,eax
@@ -53,6 +54,7 @@ segment2:
   db 1,2,3,4,5,6,7
 segment2size    equ     $ - segment2
 
+align 2
 shstrtab:
   db 0
 str_text:
@@ -65,6 +67,7 @@ str_strtab:
   db ".strtab", 0
 shstrtabsize equ $ - shstrtab
 
+align 8
 symtab:
   dd 1      ; st_name
   db 0, 0   ; st_info, st_other
@@ -73,13 +76,14 @@ symtab:
   dq 0      ; st_size
 symtabsize equ $ - symtab
 
+align 8
 strtab:
   db 0
 str_test:
   db "test", 0
 strtabsize equ $ - strtab
 
-align 8;
+align 8
 shdr:
 shdr1:                               ; elf64_shdr
   dd 0                               ;   sh_name
