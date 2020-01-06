@@ -672,13 +672,13 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
     if (section->type == SHT_SYMTAB) {
-      link_section_index = section->internal->sh_link;
       if (section->link->type != SHT_STRTAB) {
-        log_info(".symtab have invalid link: %lu", link_section_index);
-        continue;
+        log_info(".symtab have invalid link: %u", section->internal->sh_link);
+        return ERR_ELF_FORMAT;
       }
       symtab_section_index = i;
       symtab_section = section;
+      link_section_index = section->internal->sh_link;
       link_section = section->link;
       symtab_count++;
     }
