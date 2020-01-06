@@ -882,7 +882,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   int return_value = SUCCESS;
   // need resource management
   FILE *outfile = NULL;
-  Elf64_Off *segment_offset_table = NULL;
+  long *segment_offset_table = NULL;
   Elf64_Phdr *phdr_table = NULL;
   Elf64_Shdr *shdr_table = NULL;
   size_t segment_data_end = sizeof(Elf64_Ehdr);
@@ -913,7 +913,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
   long page_size = sysconf(_SC_PAGE_SIZE);
   log_info("page_size: 0x%lx", page_size);
-  segment_offset_table = (Elf64_Off *)calloc(sizeof(Elf64_Off), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
+  segment_offset_table = (long *)calloc(sizeof(Elf64_Off), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
   if (segment_offset_table == NULL) {
     log_info("calloc error");
     return_value = ERR_NOMEM;
@@ -926,7 +926,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       segment_offset_table[i] = twelf_segment->vaddr % page_size;
     }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
-      if (segment_offset_table[i] < phdr_table_end) {
+      if ((size_t)segment_offset_table[i] < phdr_table_end) {
         size_t phdr_table_page_count = phdr_table_end / page_size;
         phdr_table_page_count += phdr_table_end % page_size > 0 ? 1 : 0;
         size_t offset_adjust;
@@ -937,7 +937,11 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         }
         log_info("segment(index: %lu) overlaps with phdr table", i);
         for (size_t j = 0; j < twelf->number_of_segments; ++j) {
-          segment_offset_table[j] += offset_adjust;
+          if (__builtin_add_overflow(segment_offset_table[j], offset_adjust, &segment_offset_table[j])) {
+            log_info("segment offset overflows long after reallocation (by phdr table)");
+            return_value = ERR_IO;
+            goto fail;
+          }
         }
         break;
       }
@@ -947,24 +951,26 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       for (size_t j = i + 1; j < twelf->number_of_segments; ++j) {
         struct LibtwelfSegment *compare_target_twelf_segment = &twelf->segment_table[j];
         if (is_overlap(twelf_segment->vaddr, twelf_segment->vaddr + twelf_segment->memsize, compare_target_twelf_segment->vaddr, compare_target_twelf_segment->vaddr + compare_target_twelf_segment->memsize)) {
-            size_t original_offset = segment_offset_table[j];
-            segment_offset_table[j] = segment_offset_table[i] + (compare_target_twelf_segment->vaddr - twelf_segment->vaddr); // overflow here leads to fseek fail
+            long original_offset = segment_offset_table[j];
+            long diff;
+            if (__builtin_sub_overflow(compare_target_twelf_segment->vaddr, twelf_segment->vaddr, &diff)
+             || __builtin_add_overflow(segment_offset_table[i], diff, &segment_offset_table[j])
+            ) {
+              log_info("segment offset overflows long after reallocation (by vaddr overlap)");
+              return_value = ERR_IO;
+              goto fail;
+            }
             log_info("overlapping segment relocated: 0x%lx -> 0x%lx", original_offset, segment_offset_table[j]);
             continue;
         }
         while (is_overlap(segment_offset_table[i], segment_offset_table[i] + twelf_segment->filesize, segment_offset_table[j], segment_offset_table[j] + compare_target_twelf_segment->filesize)) {
           log_info("PT_LOAD segments on different virtual addresses overlap on file (%lu <-> %lu) adjust later segment offset by adding PAGE_SIZE", i, j);
           for (size_t k = j; k < twelf->number_of_segments; ++k) {
-            struct LibtwelfSegment *adjust_target_twelf_segment = &twelf->segment_table[k];
-            Elf64_Off new_offset;
-            Elf64_Off new_segment_end_on_file;
-            if (__builtin_add_overflow(segment_offset_table[k], page_size, &new_offset)
-              || __builtin_add_overflow(new_offset, adjust_target_twelf_segment->filesize, &new_segment_end_on_file)) {
-              log_info("reallocated segment offset overflows Elf64_Off");
-              return_value = ERR_NOMEM;
+            if (__builtin_add_overflow(segment_offset_table[k], page_size, &segment_offset_table[k])) {
+              log_info("segment offset overflows long after reallocation (by file overlap)");
+              return_value = ERR_IO;
               goto fail;
             }
-            segment_offset_table[k] = new_offset;
           }
         }
       }
@@ -977,7 +983,12 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
     }
     for (size_t i = 0; i < twelf->number_of_segments; ++i) {
       struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
-      uint64_t segment_end_on_file = segment_offset_table[i] + twelf_segment->filesize; // overflow checked by open & modification functions
+      size_t segment_end_on_file;
+      if (__builtin_add_overflow(segment_offset_table[i], twelf_segment->filesize, &segment_end_on_file)) {
+        log_info("segment end overflows long after reallocation");
+        return_value = ERR_IO;
+        goto fail;
+      }
       if (segment_end_on_file > segment_data_end) {
         segment_data_end = segment_end_on_file;
       }
@@ -1035,8 +1046,9 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         log_info("unusual case: section(index: %lu) with SHF_ALLOC without associated segment", i);
         // TODO: non-associated section & non-PT_LOAD segment overlap -> adjust offset to overlap in file, otherwise non-PT_LOAD overlapping data are written twice.
         // TODO: implemented in dumb way --> writing on the next page of segment data / can check & write on the same page if not overlapped
-        uint64_t section_data_offset;
-        uint64_t section_data_end;
+        // TODO: if offset should also be aligned by sh_addralign, compare page_size <> sh_addralign and larger one for alignment
+        long section_data_offset;
+        size_t section_data_end;
         if (__builtin_add_overflow(non_alloc_section_data_start, (page_size - (non_alloc_section_data_start % page_size)) % page_size, &section_data_offset)
          || __builtin_add_overflow(section_data_offset, twelf_section->internal->sh_offset, &section_data_offset)
          || __builtin_add_overflow(section_data_offset, twelf_section->size, &section_data_end)
@@ -1094,14 +1106,14 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
         log_info("section(index: %lu) uses original offset", i);
       }
       if (associated_segment_found) {
-        uint64_t new_section_offset;
+        long new_section_offset;
         if (__builtin_add_overflow(segment_offset_table[associated_twelf_segment->internal->index], twelf_section->address - associated_twelf_segment->vaddr,  &new_section_offset)) {
-          log_info("IMPOSSIBLE ERROR: reallocation of section inside reallocated segment offset overflows");
+          log_info("reallocation of section inside reallocated segment offset overflows");
           return_value = ERR_IO;
           goto fail;
         }
         section_offset = new_section_offset;
-        log_info("associated section(index: %lu) offset recalculated: %lu -> %lu", i, twelf_section->internal->sh_offset, section_offset);
+        log_info("associated section(index: %lu) offset recalculated: %lu -> %ld", i, twelf_section->internal->sh_offset, section_offset);
       }
       Elf64_Shdr *section = &shdr_table[i];
       section->sh_name = twelf_section->internal->sh_name;
@@ -1132,7 +1144,11 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
       goto fail;
     }
     log_info("shdr_table_position: %ld", shdr_table_position);
-    shdr_table_position += (8 - (shdr_table_position % 8)) % 8;
+    if (__builtin_add_overflow(shdr_table_position, (8 - (shdr_table_position % 8)) % 8, &shdr_table_position)) {
+      log_info("shdr_table_position overflows after alignment");
+      return_value = ERR_IO;
+      goto fail;
+    }
     log_info("shdr_table_position (aligned): %ld", shdr_table_position);
     if (fseek(outfile, shdr_table_position, SEEK_SET)) {
       log_info("fseek fail");
