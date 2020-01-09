@@ -474,6 +474,7 @@ START_TEST (libtwelf_renameSection_fail)
   ck_assert_str_eq(twelf->section_table[1].name, ".text");
 
   ret = libtwelf_setSectionData(twelf, &twelf->section_table[2], "\0", 1);
+  ck_assert_int_eq(ret, SUCCESS);
   ret = libtwelf_renameSection(twelf, &twelf->section_table[1], ".title");
   ck_assert_int_eq(ret, ERR_ELF_FORMAT);
 
@@ -1229,6 +1230,7 @@ START_TEST (libtwelf_stripSymbols_shstrndx_update)
   ck_assert_int_eq(twelf->number_of_sections, 3);
 
   ret = libtwelf_write(twelf, "../test_elfs/libtwelf_stripSymbols_shstrndx_update_output.elf");
+  ck_assert_int_eq(ret, SUCCESS);
 
   libtwelf_close(twelf);
 

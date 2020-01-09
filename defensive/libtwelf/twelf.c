@@ -155,7 +155,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  pt_load_segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, ehdr->e_phnum > 0 ? ehdr->e_phnum : 1); // 1 for preventing zero-size allocation
+  pt_load_segment_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off[2]), ehdr->e_phnum > 0 ? ehdr->e_phnum : 1); // 1 for preventing zero-size allocation
   if (pt_load_segment_boundary_table == NULL) {
     log_info("calloc error");
     return_code = ERR_NOMEM;
@@ -234,7 +234,7 @@ int libtwelf_open(char *path, struct LibtwelfFile **result)
     return_code = ERR_NOMEM;
     goto fail;
   }
-  alloc_section_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off) * 2, ehdr->e_shnum > 0 ? ehdr->e_shnum : 1); // 1 for preventing zero-size allocation
+  alloc_section_boundary_table = (Elf64_Off (*)[2])calloc(sizeof(Elf64_Off[2]), ehdr->e_shnum > 0 ? ehdr->e_shnum : 1); // 1 for preventing zero-size allocation
   if (alloc_section_boundary_table == NULL) {
     log_info("calloc error");
     return_code = ERR_NOMEM;
@@ -642,7 +642,7 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
   log_info("name write(argument): %p ~ %p", current_position, current_position + new_name_length);
   section->internal->sh_name = current_offset;
   section->name = current_position;
-  current_offset += new_name_length;
+  // current_offset += new_name_length
 
   // update shstrtab section
   free(shstrtab_twelf_section->internal->section_data);
@@ -845,7 +845,7 @@ int libtwelf_addLoadSegment(struct LibtwelfFile *twelf, char *data, size_t len, 
     new_segment.internal->index = current_index;
     new_segment_table[current_index] = new_segment;
     current_index++;
-    inserted = true;
+    // inserted = true;
   }
 
   // replace segment table
