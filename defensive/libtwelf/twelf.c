@@ -612,10 +612,18 @@ int libtwelf_renameSection(struct LibtwelfFile *twelf, struct LibtwelfSection *s
     }
     uint64_t target_name_limit = shstrtab_twelf_section->size - target_section->internal->sh_name;
     size_t target_section_name_length = strnlen(target_section->name, target_name_limit) + 1; // handle the case when shstrtab does not have terminator on end of string
-    total_name_size += target_section_name_length;
+    if (__builtin_add_overflow(total_name_size, target_section_name_length, &total_name_size)) {
+      log_info("new total names size exceeds size_t");
+      return_value = ERR_NOMEM;
+      goto fail;
+    }
     name_length_array[i] = target_section_name_length;
   }
-  total_name_size += new_name_length;
+  if (__builtin_add_overflow(total_name_size, new_name_length, &total_name_size)) {
+    log_info("new total names size exceeds size_t");
+    return_value = ERR_NOMEM;
+    goto fail;
+  }
 
   new_section_data = (char *)malloc(total_name_size);
   if (new_section_data == NULL) {
