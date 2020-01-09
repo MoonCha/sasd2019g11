@@ -663,15 +663,15 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   // keep in mind to adjust the sh_link values (and the link pointers) for all
   // remaining sections as they may need to be updated
   size_t symtab_count = 0;
-  size_t symtab_section_index = 0;
-  size_t link_section_index = 0;
+  size_t symtab_section_index;
+  size_t link_section_index;
   struct LibtwelfSection *symtab_section;
   struct LibtwelfSection *link_section;
 
   // validation
   for (size_t i = 0; i < twelf->number_of_sections; ++i) {
     struct LibtwelfSection *section = &twelf->section_table[i];
-    if (strcmp(section->name, ".symtab") == 0) {
+    if (section->type == SHT_SYMTAB) {
       if (section->link->type != SHT_STRTAB) {
         log_info(".symtab have invalid link: %u", section->internal->sh_link);
         return ERR_ELF_FORMAT;
