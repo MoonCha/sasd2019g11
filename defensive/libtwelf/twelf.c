@@ -926,7 +926,12 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   for (size_t i = 0; i < twelf->number_of_segments; ++i) {
     struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
     if (twelf_segment->internal->p_align > (unsigned long)page_size && LONG_MAX >= twelf_segment->internal->p_align) {
-      page_size = twelf_segment->internal->p_align;
+      long alignment = (page_size - (twelf_segment->internal->p_align % page_size)) % page_size;
+      if (__builtin_add_overflow(twelf_segment->internal->p_align, alignment, &page_size)) {
+        log_info("p_align is too big");
+        return_value = ERR_IO;
+        goto fail;
+      }
     }
   }
   log_info("page_size: 0x%lx", page_size);
