@@ -1298,7 +1298,8 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     if (symbol->st_name >= strtab_section_size) {
       return ERR_ELF_FORMAT;
     }
-    if (strcmp(name, strtab_section_data + symbol->st_name) == 0) {
+    size_t max_length = strtab_section_size - symbol->st_name;
+    if (strncmp(name, strtab_section_data + symbol->st_name, max_length) == 0) {
       *st_value = symbol->st_value;
       log_info("symbol->st_shndx: %u", symbol->st_shndx);
       return SUCCESS;
