@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <twelf.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -922,6 +923,12 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   }
 
   long page_size = sysconf(_SC_PAGE_SIZE);
+  for (size_t i = 0; i < twelf->number_of_segments; ++i) {
+    struct LibtwelfSegment *twelf_segment = &twelf->segment_table[i];
+    if (twelf_segment->internal->p_align > (unsigned long)page_size && LONG_MAX >= twelf_segment->internal->p_align) {
+      page_size = twelf_segment->internal->p_align;
+    }
+  }
   log_info("page_size: 0x%lx", page_size);
   segment_offset_table = (long *)calloc(sizeof(long), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
   if (segment_offset_table == NULL) {
