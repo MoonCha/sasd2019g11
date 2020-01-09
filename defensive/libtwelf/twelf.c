@@ -672,8 +672,8 @@ int libtwelf_stripSymbols(struct LibtwelfFile *twelf)
   // keep in mind to adjust the sh_link values (and the link pointers) for all
   // remaining sections as they may need to be updated
   size_t symtab_count = 0;
-  size_t symtab_section_index;
-  size_t link_section_index;
+  size_t symtab_section_index = 0;
+  size_t link_section_index = 0;
   struct LibtwelfSection *symtab_section;
   struct LibtwelfSection *link_section;
 
