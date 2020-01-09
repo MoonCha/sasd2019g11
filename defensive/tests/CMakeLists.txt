@@ -33,6 +33,10 @@ FOREACH(curProject ${twelf_projects})
   ENDIF()
 ENDFOREACH()
 
+TARGET_LINK_LIBRARIES(testsuite dl)
+TARGET_LINK_LIBRARIES(testsuite_asan dl)
+
+
 TARGET_LINK_OPTIONS(testsuite PUBLIC -rdynamic
     -Wl,--wrap=malloc
     -Wl,--wrap=calloc
@@ -43,6 +47,12 @@ TARGET_LINK_OPTIONS(testsuite PUBLIC -rdynamic
     -Wl,--wrap=close
     -Wl,--wrap=fclose
     -Wl,--wrap=fstat
+    -Wl,--wrap=fseek
+    -Wl,--wrap=ftell
+    -Wl,--wrap=fread
+    -Wl,--wrap=fwrite
+    -Wl,--wrap=read
+    -Wl,--wrap=write
     -Wl,--wrap=mmap)
 TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -rdynamic
     -Wl,--wrap=malloc
@@ -54,10 +64,13 @@ TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -rdynamic
     -Wl,--wrap=close
     -Wl,--wrap=fclose
     -Wl,--wrap=fstat
+    -Wl,--wrap=fseek
+    -Wl,--wrap=ftell
+    -Wl,--wrap=fread
+    -Wl,--wrap=fwrite
+    -Wl,--wrap=read
+    -Wl,--wrap=write
     -Wl,--wrap=mmap)
-
-TARGET_LINK_OPTIONS(testsuite PUBLIC -ldl)
-TARGET_LINK_OPTIONS(testsuite_asan PUBLIC -ldl)
 
 enable_testing()
 
@@ -113,6 +126,12 @@ add_custom_target(afl
                   WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 
 FOREACH(tc ${testcase_names})
+  execute_process (
+    COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/${tc}.xml
+    COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/${tc}_asan.xml
+    COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/valgrind-${tc}.xml
+    COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/valgrind-${tc}_vgout.xml
+  )
   add_test(NAME ${tc}
            COMMAND ${CMAKE_CURRENT_BINARY_DIR}/testsuite ${CMAKE_CURRENT_BINARY_DIR}/${tc}.xml ${tc}
            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")

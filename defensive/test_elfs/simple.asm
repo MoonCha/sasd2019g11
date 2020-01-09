@@ -41,6 +41,7 @@ phdr2:                               ; elf64_phdr
   dq segment2size                    ;   p_memsz
   dq 0x1000                          ;   p_align
 
+align 2
 segment1:
   _start:
   xor  eax,eax
@@ -53,6 +54,7 @@ segment2:
   db 1,2,3,4,5,6,7
 segment2size    equ     $ - segment2
 
+align 2
 shstrtab:
   db 0
 str_text:
