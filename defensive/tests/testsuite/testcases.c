@@ -1668,6 +1668,31 @@ START_TEST (libtwelf_resolveSymbol_basic)
 }
 END_TEST
 
+START_TEST (libtwelf_resolveSymbol_gcc)
+{
+  struct LibtwelfFile *twelf;
+  int ret = libtwelf_open("../test_elfs/gcc1.elf", &twelf);
+  ck_assert_int_eq(ret, SUCCESS);
+
+  ck_assert_int_eq(twelf->number_of_segments, 9);
+  ck_assert_int_eq(twelf->number_of_sections, 29);
+
+  Elf64_Addr value;
+  ret = libtwelf_resolveSymbol(twelf, "deregister_tm_clones", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0x0000000000400470);
+
+  ret = libtwelf_resolveSymbol(twelf, "test", &value);
+  ck_assert_int_eq(ret, SUCCESS);
+  ck_assert_int_eq(value, 0x0000000000400565);
+
+  ret = libtwelf_resolveSymbol(twelf, "there_is_no_symbol_like_this", &value);
+  ck_assert_int_eq(ret, ERR_NOT_FOUND);
+
+  libtwelf_close(twelf);
+}
+END_TEST
+
 START_TEST (libtwelf_resolveSymbol_without_symtab)
 {
   struct LibtwelfFile *twelf;
@@ -1923,6 +1948,7 @@ int main(int argc, char** argv)
   ADD_TESTCASE(libtwelf_addLoadSegment_basic_with_write);
   ADD_TESTCASE(libtwelf_addLoadSegment_offset_overlap);
   ADD_TESTCASE(libtwelf_resolveSymbol_basic);
+  ADD_TESTCASE(libtwelf_resolveSymbol_gcc);
   ADD_TESTCASE(libtwelf_resolveSymbol_without_symtab);
   ADD_TESTCASE(libtwelf_resolveSymbol_no_link);
   ADD_TESTCASE(libtwelf_resolveSymbol_invalid_st_name);
