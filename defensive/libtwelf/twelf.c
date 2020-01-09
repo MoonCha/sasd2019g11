@@ -1250,9 +1250,6 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
     if (section->type == SHT_SYMTAB) {
       entsize = section->internal->sh_entsize;
       symtab_section_size = section->size;
-      if (entsize != sizeof(Elf64_Sym)) {
-        return ERR_ELF_FORMAT;
-      }
       symtab_section_data =  section->internal->section_data;
       // remove or retain after test --> No effect on score
       if (section->link->type != SHT_STRTAB) {
