@@ -1095,16 +1095,18 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
           return_value = ERR_IO;
           goto fail;
         }
-        long alignment = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
-        if (__builtin_add_overflow(cur_position, alignment, &cur_position)) {
-          log_info("section_offset exceeds long after alignment");
-          return_value = ERR_IO;
-          goto fail;
-        }
-        if (fseek(outfile, cur_position, SEEK_SET)) {
-          log_info("fseek error");
-          return_value = ERR_IO;
-          goto fail;
+        if (twelf_section->internal->sh_addralign > 0 ) {
+          long alignment = (twelf_section->internal->sh_addralign - (cur_position % twelf_section->internal->sh_addralign)) % twelf_section->internal->sh_addralign;
+          if (__builtin_add_overflow(cur_position, alignment, &cur_position)) {
+            log_info("section_offset exceeds long after alignment");
+            return_value = ERR_IO;
+            goto fail;
+          }
+          if (fseek(outfile, cur_position, SEEK_SET)) {
+            log_info("fseek error");
+            return_value = ERR_IO;
+            goto fail;
+          }
         }
         section_offset = cur_position;
         log_info("non-associated section(index: %lu) offset recalculated: %lu -> %lu", i, twelf_section->internal->sh_offset, section_offset);
