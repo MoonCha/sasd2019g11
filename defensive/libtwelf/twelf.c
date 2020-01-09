@@ -915,7 +915,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
 
   long page_size = sysconf(_SC_PAGE_SIZE);
   log_info("page_size: 0x%lx", page_size);
-  segment_offset_table = (long *)calloc(sizeof(Elf64_Off), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
+  segment_offset_table = (long *)calloc(sizeof(long), twelf->number_of_segments > 0 ? twelf->number_of_segments : 1); // 1 for preventing zero-size allocation
   if (segment_offset_table == NULL) {
     log_info("calloc error");
     return_value = ERR_NOMEM;
