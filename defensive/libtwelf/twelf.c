@@ -1278,6 +1278,10 @@ int libtwelf_resolveSymbol(struct LibtwelfFile *twelf, const char *name, Elf64_A
   log_info("symtab_section_size: %lu, entsize: %lu, sizeof(Elf64_Sym): %lu", symtab_section_size, entsize, sizeof(Elf64_Sym));
   size_t symbol_size = entsize >= sizeof(Elf64_Sym) ? entsize : sizeof(Elf64_Sym);
   size_t symbol_count = symtab_section_size / symbol_size;
+  // TODO: determine retain or remove after test
+  if (symtab_section_size % symbol_size != 0) {
+    return ERR_ELF_FORMAT;
+  }
   for (size_t i = 0; i < symbol_count; ++i) {
     Elf64_Sym *symbol = (Elf64_Sym *)((uintptr_t)symtab_section_data + i * symbol_size);
     // TODO: when to check st_name validity?: resolveSymbol or open
