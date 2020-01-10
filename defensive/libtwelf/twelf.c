@@ -889,7 +889,7 @@ int libtwelf_write(struct LibtwelfFile *twelf, char *dest_file)
   // When writing the output file you should not write data twice  to achieve
   // full points. (for example if the data of the .text section is also part of
   // a PT_LOAD segment)
-  if (twelf->number_of_segments > 65535) {
+  if (twelf->number_of_segments > UINT16_MAX) {
     return ERR_IO;
   }
   int return_value = SUCCESS;
